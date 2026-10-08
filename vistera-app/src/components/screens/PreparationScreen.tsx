@@ -9,12 +9,13 @@ import {
   Info
 } from 'lucide-react';
 import { ScreenId } from '@/components/layout/Header';
-import { ServiceType } from '@/types/foodflow';
+import { ServiceType, NumericalForecast } from '@/types/foodflow';
 
 interface PreparationScreenProps {
   onNavigate: (screen: ScreenId) => void;
   predictedDiners?: number;
   initialService?: ServiceType;
+  forecast?: NumericalForecast;
 }
 
 export interface CulinaryItemSpec {
@@ -181,12 +182,29 @@ export function PreparationScreen({
   onNavigate,
   predictedDiners: propDiners = 795,
   initialService = 'LUNCH',
+  forecast,
 }: PreparationScreenProps) {
-  const [service, setService] = useState<ServiceType>(initialService);
-  const [diners, setDiners] = useState<number>(propDiners);
-  const [bufferPct, setBufferPct] = useState<number>(4.0);
+  const effectiveDiners = forecast?.predictedDiners || forecast?.predictedDemand || propDiners;
+  const effectiveService = (forecast?.serviceMeal?.toUpperCase() as ServiceType) || initialService;
+
+  const [service, setService] = useState<ServiceType>(effectiveService);
+  const [diners, setDiners] = useState<number>(effectiveDiners);
+  const [bufferPct, setBufferPct] = useState<number>(forecast?.safetyBufferPct || 4.0);
   const [initialBatchPct, setInitialBatchPct] = useState<number>(85); // 85% initial, 15% reserve
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+
+  // Synchronize when forecast or propDiners updates
+  React.useEffect(() => {
+    const updatedDiners = forecast?.predictedDiners || forecast?.predictedDemand || propDiners;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDiners(updatedDiners);
+    if (forecast?.serviceMeal) {
+      setService(forecast.serviceMeal.toUpperCase() as ServiceType);
+    }
+    if (forecast?.safetyBufferPct) {
+      setBufferPct(forecast.safetyBufferPct);
+    }
+  }, [forecast, propDiners]);
 
   // Filter items matching service (or show all if selected)
   const filteredCatalog = useMemo(() => {
@@ -218,6 +236,11 @@ export function PreparationScreen({
                 <span className="px-2.5 py-0.5 rounded-full bg-[#EAF4EE] text-[#1B4D36] font-mono text-[11px] font-bold border border-[#D0E7DA]">
                   STAGED CULINARY PRODUCTION
                 </span>
+                {forecast?.forecastId && (
+                  <span className="px-2 py-0.5 rounded-full bg-[#FAF9F5] text-[#585E68] text-[10px] font-mono font-bold border border-[#E6E4DC]">
+                    FORECAST ID: {forecast.forecastId}
+                  </span>
+                )}
                 <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200">
                   Decision-Support Recommendations
                 </span>

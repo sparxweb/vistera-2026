@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { calculateDemandForecast } from '@/lib/forecast/engine';
 import { supabase } from '@/lib/supabase/client';
 import { askAI } from '@/lib/ai/router';
+import { parseKitchenInsights } from '@/lib/ai/cleaner';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,15 +21,15 @@ export async function POST(request: NextRequest) {
     const dayOfWeek = body?.dayOfWeek || undefined;
     const specialEvent = body?.specialEvent || undefined;
     const hotelCapacity = body?.hotelCapacity !== undefined ? Number(body.hotelCapacity) : undefined;
-    const menuItem = body?.menuItem || 'Rice + Dal + Chicken';
-    const context = body?.context || 'None';
+    const menuItem = body?.menuItem || body?.menu || 'Rice + Dal + Chicken';
+    const context = body?.context || 'Standard';
 
     const rawBuffer = body?.defaultBufferPct !== undefined ? Number(body.defaultBufferPct) : undefined;
     const defaultBufferPct = rawBuffer !== undefined && !isNaN(rawBuffer) && rawBuffer > 0
       ? (rawBuffer > 1 ? rawBuffer / 100 : rawBuffer)
       : undefined;
 
-    // 1. Deterministic Calculation (Strictly non-generative)
+    // 1. Deterministic Calculation (Strictly non-generative closed-form math)
     const calculation = calculateDemandForecast({
       expectedDiners,
       serviceDate,
@@ -41,43 +42,48 @@ export async function POST(request: NextRequest) {
       defaultBufferPct,
     });
 
-    // 2. Qualitative AI Explanation (Gemini) — with robust fallback
-    let aiExplanationText = `Demand is projected at ${calculation.predictedDemand} servings based on ${expectedDiners} registered diners. The recommended ${calculation.recommendedPreparation} servings stages a modest +${calculation.bufferServings} serving safety buffer to balance stockout resilience with food waste reduction.`;
+    // 2. Qualitative AI Explanation (Strict JSON Output Contract)
+    const fallbackContext = {
+      expectedDiners,
+      predictedDemand: calculation.predictedDemand,
+      recommendedPreparation: calculation.recommendedPreparation,
+      serviceMeal,
+      bufferServings: calculation.bufferServings,
+      baseline: calculation.calculationBreakdown?.comparableBaseline || 710,
+    };
+
+    let kitchenInsights = parseKitchenInsights('', fallbackContext);
 
     try {
-      const prompt = `You are the FOODFLOW kitchen reasoning copilot for an institutional canteen.
+      const prompt = `You are the FOODFLOW kitchen reasoning copilot for Deccan Grand Hotel, Hyderabad.
 Service: ${serviceMeal}
 Date: ${serviceDate}
 Menu: ${menuItem}
 Registered Diners: ${expectedDiners}
 Context: ${context}
-Engine Forecast Output: ${calculation.predictedDemand} servings
-Recommended Preparation: ${calculation.recommendedPreparation} servings (+${calculation.bufferServings} buffer)
-Risk: ${calculation.operationalRisk}
+Engine Predicted Demand: ${calculation.predictedDemand} servings
+Recommended Preparation: ${calculation.recommendedPreparation} servings (+${calculation.bufferServings} buffer servings)
+Operational Risk: ${calculation.operationalRisk}
 
-Provide a concise, 2-sentence operational explanation to the kitchen manager explaining the rationale and safe batch staging advice. Do NOT calculate new numbers. Use careful wording ("likely contributing factor", not "confirmed cause").`;
+Output a strictly valid JSON object with these exact keys:
+{
+  "summary": "A concise 1-2 sentence explanation of the forecast rationale and attendance factors.",
+  "key_factors": ["Factor 1 from historical shift data", "Factor 2 regarding attendance pattern", "Factor 3 regarding capacity or event"],
+  "recommendations": ["Practical kitchen action 1 for batch staging (e.g. 85% initial batch)", "Practical action 2 for reserve staging", "Practical action 3 for turnstile trigger"],
+  "caveats": ["One operational caveat regarding external variability"]
+}
+Do NOT calculate new numbers. Return JSON ONLY without preamble, chain-of-thought, or markdown code blocks.`;
 
       const rawAiResponse = await askAI(prompt, 'gemini');
-      if (rawAiResponse && rawAiResponse.trim().length > 10) {
-        let cleaned = rawAiResponse.trim();
-        // If Gemini returns a thinking block or chain of thought preface, extract the final concise advice
-        if (cleaned.includes("Here's a thinking process") || cleaned.includes("Here's a thinking")) {
-          const parts = cleaned.split(/\n\n(?=[A-Z])/);
-          const finalCandidate = parts[parts.length - 1]?.trim();
-          if (finalCandidate && finalCandidate.length > 20 && !finalCandidate.startsWith('1.') && !finalCandidate.startsWith('-')) {
-            cleaned = finalCandidate;
-          } else {
-            cleaned = `Demand is projected at ${calculation.predictedDemand} servings for ${expectedDiners} diners. The recommended preparation stages a +${calculation.bufferServings} serving safety buffer to balance sudden turnstile arrivals with zero food waste.`;
-          }
-        }
-        aiExplanationText = cleaned;
-      }
+      kitchenInsights = parseKitchenInsights(rawAiResponse, fallbackContext);
     } catch (aiErr) {
-      console.warn('[FOODFLOW AI] Gemini explanation offline or unavailable, using deterministic rationale:', aiErr);
+      console.warn('[FOODFLOW AI] AI explanation offline or unconfigured, using deterministic rationale:', aiErr);
     }
 
+    const aiExplanationText = kitchenInsights.summary;
+
     // 3. Database Persistence (Supabase PostgreSQL)
-    let forecastId = crypto.randomUUID();
+    let forecastId = `DGH-FC-${Date.now().toString().slice(-6)}`;
     if (supabase) {
       try {
         const { data, error } = await supabase
@@ -105,35 +111,41 @@ Provide a concise, 2-sentence operational explanation to the kitchen manager exp
     // Cache latest generated forecast
     const finalExplanation = {
       provider: 'Gemini 3.8 Flash' as const,
-      summary: aiExplanationText,
-      detailedReasoning: [
-        `Historical consumption patterns for ${serviceMeal.toLowerCase()} indicate consistent turnstile arrivals.`,
-        `Context factor (${context}) factored into headcount adjustments.`,
-        `Recipe (${menuItem}) has high tray stability; two-stage batch staging active.`,
-        `Controlled buffer maintains safety margin to prevent counter stockouts.`
-      ],
-      operationalRecommendation: calculation.dishes.length > 0 
-        ? `Stage ${calculation.dishes[0].batchStaging.initialBatch} ${calculation.dishes[0].unit} ${calculation.dishes[0].dishName} for line open. ${calculation.dishes[0].batchStaging.triggerCondition}`
-        : `Stage 85% for line open. Hold remaining in hot reserve.`,
-      confidenceRationale: `Statistical demand baseline calculated across 25 comparable shift logs at the Hyderabad hostel canteen.`,
-      bufferAdvice: `Keep safety buffer under 4% to maintain strict food waste minimization.`
+      summary: kitchenInsights.summary,
+      keyFactors: kitchenInsights.key_factors,
+      recommendations: kitchenInsights.recommendations,
+      caveats: kitchenInsights.caveats,
+      detailedReasoning: kitchenInsights.key_factors,
+      operationalRecommendation: kitchenInsights.recommendations[0] || 'Stage 85% for line open. Hold remaining in hot reserve.',
+      confidenceRationale: `Statistical demand baseline calculated across 90-day historical shift records for Deccan Grand Hotel.`,
+      bufferAdvice: `Keep safety buffer at ${defaultBufferPct ? (defaultBufferPct * 100).toFixed(1) : '3.0'}% to prevent overproduction.`,
+      isFallback: kitchenInsights.isFallback,
     };
 
     latestCachedForecast = {
       forecastId,
+      hotelId: 'DGH-HYD-01',
+      serviceDate,
+      serviceMeal,
       expectedDiners,
       predictedDiners: calculation.predictedDiners,
       predictedDemand: calculation.predictedDemand,
       recommendedPreparation: calculation.recommendedPreparation,
       bufferServings: calculation.bufferServings,
+      defaultBufferPct: defaultBufferPct ?? 0.03,
       operationalRisk: calculation.operationalRisk,
       confidence: calculation.confidence,
       dishes: calculation.dishes,
       calculationBreakdown: calculation.calculationBreakdown,
       factors: calculation.numericalForecast.factors,
+      aiInsights: kitchenInsights,
       aiExplanation: finalExplanation,
       forecast: {
         ...calculation.numericalForecast,
+        forecastId,
+        hotelId: 'DGH-HYD-01',
+        serviceDate,
+        serviceMeal,
         dishes: calculation.dishes,
         calculationBreakdown: calculation.calculationBreakdown,
       },
@@ -190,11 +202,15 @@ export async function GET() {
       success: true,
       source: 'baseline',
       forecast: {
-        forecastId: '00000000-0000-4000-8000-000000000001',
-        expectedDiners: 800,
-        predictedDemand: 742,
-        recommendedPreparation: 760,
-        bufferServings: 18,
+        forecastId: 'DGH-FC-892401',
+        hotelId: 'DGH-HYD-01',
+        serviceDate: new Date().toISOString().split('T')[0],
+        serviceMeal: 'Lunch',
+        expectedDiners: 820,
+        predictedDiners: 795,
+        predictedDemand: 795,
+        recommendedPreparation: 819,
+        bufferServings: 24,
         operationalRisk: 'LOW',
       },
     });

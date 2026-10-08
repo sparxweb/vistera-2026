@@ -100,7 +100,7 @@ export function RecoveryMapbox({
             });
 
             new mapboxgl.Marker(orgEl)
-              .setLngLat([org.lng, org.lat])
+              .setLngLat([org.lng ?? org.longitude ?? 78.3483, org.lat ?? org.latitude ?? 17.4447])
               .setPopup(
                 new mapboxgl.Popup({ offset: 25 }).setHTML(
                   `<div style="font-family:sans-serif;padding:6px;max-width:200px">

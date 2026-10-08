@@ -3,10 +3,9 @@
 import React, { useState } from 'react';
 import { 
   ArrowRight, 
-  Sparkles,
-  Utensils,
-  Calculator,
-  X
+  Utensils, 
+  Calculator, 
+  X 
 } from 'lucide-react';
 
 import { NumericalForecast, LLMExplanation, DishPreparationItem, ForecastCalculationBreakdown } from '@/types/foodflow';
@@ -14,6 +13,7 @@ import { INITIAL_NUMERICAL_FORECAST, INITIAL_LLM_EXPLANATION, DEMO_HOTEL } from 
 import { calculateDemandForecast } from '@/lib/forecast/engine';
 import { RiskIndicator } from '@/components/ui/RiskIndicator';
 import { ScreenId } from '@/components/layout/Header';
+import { AIKitchenInsightsCard } from '@/components/ui/AIKitchenInsightsCard';
 
 interface ForecastScreenProps {
   onForecastGenerated?: (
@@ -141,9 +141,18 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
           defaultBufferPct,
           hotelCapacity: DEMO_HOTEL.serviceCapacity,
         });
-        setForecast(localCalc.numericalForecast);
+        const fallbackForecast: NumericalForecast = {
+          ...localCalc.numericalForecast,
+          forecastId: `DGH-FC-${Date.now().toString().slice(-6)}`,
+          serviceDate: new Date().toISOString().split('T')[0],
+          serviceMeal: mealType,
+        };
+        setForecast(fallbackForecast);
         setCalcBreakdown(localCalc.calculationBreakdown);
         setHasCalculated(true);
+        if (onForecastGenerated) {
+          onForecastGenerated(fallbackForecast, explanation, selectedMenu);
+        }
       }
     } catch {
       // Deterministic calculation guaranteed even without API
@@ -156,9 +165,18 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
         defaultBufferPct,
         hotelCapacity: DEMO_HOTEL.serviceCapacity,
       });
-      setForecast(localCalc.numericalForecast);
+      const fallbackForecast: NumericalForecast = {
+        ...localCalc.numericalForecast,
+        forecastId: `DGH-FC-${Date.now().toString().slice(-6)}`,
+        serviceDate: new Date().toISOString().split('T')[0],
+        serviceMeal: mealType,
+      };
+      setForecast(fallbackForecast);
       setCalcBreakdown(localCalc.calculationBreakdown);
       setHasCalculated(true);
+      if (onForecastGenerated) {
+        onForecastGenerated(fallbackForecast, explanation, selectedMenu);
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -419,26 +437,25 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
               </div>
             </div>
 
-            {/* GEMINI OPERATIONAL INSIGHT (DECOUPLED QUALITATIVE COPILOT) */}
-            <div className="p-5 rounded-2xl bg-[#EAF4EE] border border-[#D0E7DA] space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#2E7D32]" />
-                  <span className="text-xs font-bold text-[#1B4D36] uppercase tracking-wider">
-                    Kitchen Reasoning Copilot ({explanation.provider})
-                  </span>
-                </div>
-                <span className="text-[10px] font-mono text-[#2E7D32] font-bold">
-                  QUALITATIVE STAGING ADVICE ONLY
-                </span>
-              </div>
-              <p className="text-xs text-[#141618] leading-relaxed font-medium">
-                {explanation.summary}
-              </p>
-              <div className="text-[11px] text-[#1B4D36] pt-1">
-                <strong>Staging Directive:</strong> {explanation.operationalRecommendation}
-              </div>
-            </div>
+            {/* AI KITCHEN INSIGHTS CARD (STRICT USER-FACING CONTRACT) */}
+            <AIKitchenInsightsCard
+              insights={forecast.aiInsights || {
+                summary: explanation.summary,
+                key_factors: explanation.keyFactors || explanation.detailedReasoning || [
+                  `Historical comparable baseline for ${mealType.toLowerCase()} shift`,
+                  `Day-of-week attendance curve applied to bookings`,
+                  `Hotel service capacity bound strictly satisfied`,
+                ],
+                recommendations: explanation.recommendations || [
+                  `Stage 85% initial batch for dining room opening`,
+                  `Hold 15% reserve in temperature-safe staging`,
+                  `Fire reserve batch upon mid-shift turnout verification`,
+                ],
+                caveats: explanation.caveats || ['Weather or corporate banqueting shifts may alter attendance.'],
+                isFallback: explanation.isFallback,
+              }}
+              provider={explanation.provider}
+            />
 
             {/* NEXT WORKFLOW ACTION */}
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-[#F0EFEB]">

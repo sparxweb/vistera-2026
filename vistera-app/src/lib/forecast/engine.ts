@@ -31,11 +31,18 @@ export interface ForecastInput {
   menuItem?: string;
   context?: 'None' | 'Standard' | 'Exam Week' | 'Holiday' | 'Event' | 'Heavy Weather' | string;
   defaultBufferPct?: number; // e.g. 0.03 (3.0%)
+  safetyBufferPct?: number; // e.g. 3.0 or 0.03
   historicalBaseline?: number;
   hotelCapacity?: number;
 }
 
 export interface ForecastOutput {
+  forecastId: string;
+  hotelId: string;
+  hotelName: string;
+  serviceDate: string;
+  serviceMeal: string;
+  safetyBufferPct: number;
   expectedDiners: number;
   predictedDiners: number;
   predictedDemand: number; // total meal equivalents
@@ -48,15 +55,21 @@ export interface ForecastOutput {
   calculationBreakdown: ForecastCalculationBreakdown;
 }
 
-
 export function calculateDemandForecast(input: ForecastInput): ForecastOutput {
   const {
     expectedDiners,
     serviceMeal = 'Lunch',
     menuItem = 'Rice + Dal + Chicken',
     context = 'Standard',
-    defaultBufferPct = 0.03, // 3.0% default safety buffer
   } = input;
+
+  const effectiveBufferFraction = 
+    input.safetyBufferPct !== undefined 
+      ? (input.safetyBufferPct > 1 ? input.safetyBufferPct / 100 : input.safetyBufferPct)
+      : (input.defaultBufferPct !== undefined ? (input.defaultBufferPct > 1 ? input.defaultBufferPct / 100 : input.defaultBufferPct) : 0.03);
+
+  const effectiveBufferPct = Number((effectiveBufferFraction * 100).toFixed(1));
+  const defaultBufferPct = effectiveBufferFraction;
 
   const normalizedMeal = 
     serviceMeal === 'Breakfast' || serviceMeal === 'Dinner' ? serviceMeal : 'Lunch';
@@ -103,11 +116,12 @@ export function calculateDemandForecast(input: ForecastInput): ForecastOutput {
 
   // Special event adjustment
   const hasSpecialEvent = Boolean(input.specialEvent || normalizedContext === 'Weekend / Event');
-  const specialEventEffectPct = hasSpecialEvent ? Number(((patternAnalysis.specialEventMultiplier - 1) * 100).toFixed(1)) : 0;
+  const specialMultiplier = patternAnalysis.specialEventMultiplier ?? 1.0;
+  const specialEventEffectPct = hasSpecialEvent ? Number(((specialMultiplier - 1) * 100).toFixed(1)) : 0;
   const specialEventEffectDiners = Math.round(comparableBaseline * (specialEventEffectPct / 100));
 
   // Recent 7-day trend effect
-  const recentTrendPct = patternAnalysis.recent7DayTrendPct;
+  const recentTrendPct = patternAnalysis.recent7DayTrendPct ?? 0;
   const recentTrendDiners = Math.round(comparableBaseline * (recentTrendPct / 100));
 
   // Capacity limit based on hotel profile (Safety bound)
@@ -376,9 +390,9 @@ export function calculateDemandForecast(input: ForecastInput): ForecastOutput {
   });
 
   // 4. OVERALL MEAL EQUIVALENTS (for legacy/summary metrics)
-  // 800 diners -> 742 predicted, 760 prep (+18 buffer / 2.4%)
-  // 820 diners -> 795 predicted, 819 prep
-  const totalBufferServings = Math.max(1, Math.round(predictedDiners * defaultBufferPct));
+  // Total buffer servings = round(predictedDiners * effectiveBufferFraction)
+  // Recommended prep = predictedDiners + buffer
+  const totalBufferServings = Math.round(predictedDiners * effectiveBufferFraction);
   const recommendedPreparation = predictedDiners + totalBufferServings;
 
   // 5. OPERATIONAL RISK
@@ -394,7 +408,17 @@ export function calculateDemandForecast(input: ForecastInput): ForecastOutput {
   const confidence: 'High' | 'Medium' | 'Low' = 
     expectedDiners > 1500 ? 'Low' : expectedDiners < 300 ? 'Medium' : 'High';
 
+  const todayStr = (input.serviceDate || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
+  const randSuffix = Math.random().toString(36).substring(2, 7);
+  const forecastId = `fc-${todayStr}-${normalizedMeal.toLowerCase()}-${randSuffix}`;
+
   const numericalForecast: NumericalForecast = {
+    forecastId,
+    hotelId: 'hotel-deccan-grand-01',
+    hotelName: 'Deccan Grand Hotel — Hyderabad',
+    serviceDate: input.serviceDate || new Date().toISOString().slice(0, 10),
+    serviceMeal: normalizedMeal,
+    safetyBufferPct: effectiveBufferPct,
     expectedDiners,
     predictedDiners,
     historicalAverage: historicalBaseline,
@@ -412,9 +436,16 @@ export function calculateDemandForecast(input: ForecastInput): ForecastOutput {
       menuDemandFactor: `${menuItem}: empirical dish rates applied in real units (kg/L/pieces)`,
       dayOfWeekEffect: `Capacity cap: ${hotelCapacityLimit} diners (${isCapacityConstrained ? 'Constrained' : 'Within capacity'})`,
     },
+    calculationBreakdown,
   };
 
   return {
+    forecastId,
+    hotelId: 'hotel-deccan-grand-01',
+    hotelName: 'Deccan Grand Hotel — Hyderabad',
+    serviceDate: input.serviceDate || new Date().toISOString().slice(0, 10),
+    serviceMeal: normalizedMeal,
+    safetyBufferPct: effectiveBufferPct,
     expectedDiners,
     predictedDiners,
     predictedDemand: predictedDiners,

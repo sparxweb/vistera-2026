@@ -13,19 +13,18 @@ import {
   DEMO_HOTEL_DATASET_LABEL,
   HistoricalServiceRecord
 } from '@/lib/data/historicalServices';
-import { ServiceType } from '@/types/foodflow';
+import { ServiceType, HistoryRecord } from '@/types/foodflow';
 
 interface HistoryScreenProps {
   onNavigate?: (screen: ScreenId) => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  history?: any;
+  history?: HistoryRecord[];
 }
 
-export function HistoryScreen({ onNavigate }: HistoryScreenProps) {
+export function HistoryScreen({ onNavigate, history = [] }: HistoryScreenProps) {
   const [selectedServiceFilter, setSelectedServiceFilter] = useState<'ALL' | ServiceType>('ALL');
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('ALL');
   const [showEventOnly, setShowEventOnly] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'validation' | 'patterns' | 'archive'>('validation');
+  const [activeTab, setActiveTab] = useState<'validation' | 'patterns' | 'archive' | 'session'>('validation');
 
   // Compute Holdout Validation Metrics
   const validationMetrics = useMemo(() => {
@@ -122,6 +121,24 @@ export function HistoryScreen({ onNavigate }: HistoryScreenProps) {
             }`}
           >
             90-Day Records Table ({filteredRecords.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('session')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'session'
+                ? 'bg-[#1B4D36] text-white shadow-xs'
+                : 'bg-[#FAF9F5] text-[#585E68] hover:bg-[#F0EFEB] border border-[#E6E4DC]'
+            }`}
+          >
+            <span>Live Session Shifts</span>
+            {history.length > 0 && (
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === 'session' ? 'bg-white/20 text-white' : 'bg-[#EAF4EE] text-[#1B4D36]'
+              }`}>
+                {history.length}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -457,6 +474,90 @@ export function HistoryScreen({ onNavigate }: HistoryScreenProps) {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* 05. TAB: LIVE SESSION RECORDED SHIFTS */}
+      {activeTab === 'session' && (
+        <div className="bg-white rounded-3xl border border-[#E6E4DC] overflow-hidden shadow-xs space-y-4 p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#F0EFEB]">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#1B4D36] animate-pulse"></span>
+                <span className="text-[10px] font-mono font-bold text-[#1B4D36] uppercase tracking-wider">
+                  PERSISTED STATE FROM SERVICE TRACKING
+                </span>
+              </div>
+              <h2 className="text-base font-extrabold text-[#141618]">
+                Live Session Recorded Outcomes ({history.length} Entries)
+              </h2>
+              <p className="text-xs text-[#737A87] mt-0.5">
+                Every forecast calculated and service outcome saved in Service Tracking persists here to close the operational feedback loop.
+              </p>
+            </div>
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate('consumption')}
+                className="px-3.5 py-1.5 bg-[#FAF9F5] hover:bg-[#F0EFEB] text-[#141618] border border-[#E6E4DC] text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Go to Service Tracking
+              </button>
+            )}
+          </div>
+
+          {history.length === 0 ? (
+            <div className="py-12 text-center text-[#737A87] text-xs">
+              No live service records recorded yet in this session. Calculate a forecast and save actual service in Service Tracking.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-[#FAF9F5] border-b border-[#E6E4DC] text-[#737A87] font-semibold text-[11px]">
+                    <th className="py-2.5 px-3">Date</th>
+                    <th className="py-2.5 px-3">Day</th>
+                    <th className="py-2.5 px-3 text-right">Expected Diners</th>
+                    <th className="py-2.5 px-3 text-right">Forecast (N)</th>
+                    <th className="py-2.5 px-3 text-right">Prepared Servings</th>
+                    <th className="py-2.5 px-3 text-right">Actual Served</th>
+                    <th className="py-2.5 px-3 text-right">Variance</th>
+                    <th className="py-2.5 px-3 text-right">Surplus</th>
+                    <th className="py-2.5 px-3">Recovery Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F0EFEB]">
+                  {history.map((h, idx) => (
+                    <tr key={idx} className="hover:bg-[#FAF9F5]">
+                      <td className="py-2.5 px-3 font-mono font-bold text-[#141618]">{h.date}</td>
+                      <td className="py-2.5 px-3 text-[#585E68]">{h.day}</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-[#585E68]">{h.diners}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-[#1B4D36]">{h.forecast}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-[#141618]">{h.prepared}</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-[#141618]">
+                        {h.actualServed || 'In Progress'}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-[#585E68]">
+                        {h.actualServed ? (h.variance > 0 ? `+${h.variance}` : h.variance) : '—'}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-mono text-[#C6682F] font-bold">
+                        {h.actualServed ? `${h.surplus} servings` : '—'}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                          h.recoveryStatus === 'Recovered'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-zinc-100 text-zinc-700'
+                        }`}>
+                          {h.recoveryStatus}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

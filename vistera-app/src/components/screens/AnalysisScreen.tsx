@@ -31,7 +31,7 @@ export function AnalysisScreen({
 
   // Dynamically constructed natural language insight from stored calculations
   const saturdayData = patterns.dayOfWeekAverages.find((d) => d.day === 'Saturday');
-  const saturdayVariance = saturdayData ? saturdayData.varianceVsMeanPct : 4.8;
+  const saturdayVariance = saturdayData?.varianceVsMeanPct ?? 4.8;
   const satExplanation = `Lunch demand on Saturdays has historically been ${saturdayVariance >= 0 ? `${saturdayVariance}% higher` : `${Math.abs(saturdayVariance)}% lower`} than the hotel's overall service average, driven by banqueting check-ins and weekend leisure turnover.`;
 
   return (
@@ -99,9 +99,9 @@ export function AnalysisScreen({
                 <span className="text-[10px] text-[#737A87] block">avg diners</span>
                 <div className="mt-2 pt-2 border-t border-[#F0EFEB]">
                   <span className={`text-[10px] font-bold ${
-                    dayData.varianceVsMeanPct >= 0 ? 'text-[#2E7D32]' : 'text-[#737A87]'
+                    (dayData.varianceVsMeanPct ?? 0) >= 0 ? 'text-[#2E7D32]' : 'text-[#737A87]'
                   }`}>
-                    {dayData.varianceVsMeanPct >= 0 ? `+${dayData.varianceVsMeanPct}%` : `${dayData.varianceVsMeanPct}%`}
+                    {(dayData.varianceVsMeanPct ?? 0) >= 0 ? `+${dayData.varianceVsMeanPct ?? 0}%` : `${dayData.varianceVsMeanPct ?? 0}%`}
                   </span>
                 </div>
               </div>
@@ -163,7 +163,7 @@ export function AnalysisScreen({
             <div className="flex items-center justify-between text-xs">
               <span className="text-[#585E68]">Rolling 7-Day Delta:</span>
               <span className="font-bold text-[#141618]">
-                {patterns.recent7DayTrendPct >= 0 ? `+${patterns.recent7DayTrendPct}%` : `${patterns.recent7DayTrendPct}%`}
+                {(patterns.recent7DayTrendPct ?? 0) >= 0 ? `+${patterns.recent7DayTrendPct ?? 0}%` : `${patterns.recent7DayTrendPct ?? 0}%`}
               </span>
             </div>
             <div className="pt-2 border-t border-[#F0EFEB] flex items-center justify-between">

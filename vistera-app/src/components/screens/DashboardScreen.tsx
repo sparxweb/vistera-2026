@@ -17,6 +17,7 @@ import {
 } from '@/lib/demoData';
 import { ScreenId } from '@/components/layout/Header';
 import { ServiceType } from '@/types/foodflow';
+import { AIKitchenInsightsCard } from '@/components/ui/AIKitchenInsightsCard';
 
 interface DashboardScreenProps {
   onNavigate: (screen: ScreenId) => void;
@@ -473,30 +474,25 @@ export function DashboardScreen({
         <ForecastChart />
       </div>
 
-      {/* 04. AI OPERATIONAL COPILOT (Contextual Reasoning) */}
-      <div className="p-5 rounded-3xl bg-white border border-[#E6E4DC] shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#1B4D36] bg-[#EAF4EE] px-2 py-0.5 rounded-full border border-[#D0E7DA]">
-              AI COPILOT
-            </span>
-            <span className="text-xs font-bold text-[#141618]">
-              Gemini 3.8 Flash Operational Reasoning
-            </span>
-          </div>
-          <p className="text-xs text-[#585E68] leading-relaxed max-w-2xl">
-            {explanation.summary || 'Wednesday lunch shows high predictability. Recommended preparation includes a modest 3% safety buffer with two-stage batch cooking.'}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onNavigate('analysis')}
-          className="px-4 py-2 bg-white text-[#141618] border border-[#E6E4DC] hover:bg-[#FAF9F5] rounded-xl text-xs font-bold transition-colors shrink-0 cursor-pointer"
-        >
-          View Pattern Analysis
-        </button>
-      </div>
+      {/* 04. AI KITCHEN INSIGHTS (STRICT USER-FACING CONTRACT) */}
+      <AIKitchenInsightsCard
+        insights={forecast?.aiInsights || {
+          summary: explanation.summary || 'Wednesday lunch shows high predictability. Recommended preparation includes a modest 3% safety buffer with two-stage batch cooking.',
+          key_factors: explanation.keyFactors || explanation.detailedReasoning || [
+            'Historical comparable shift baseline from 90-day archive',
+            'Day-of-week attendance curve applied to bookings',
+            'Capacity hard bound satisfied for Deccan Grand Hotel',
+          ],
+          recommendations: explanation.recommendations || [
+            'Stage 85% initial batch for dining room opening',
+            'Hold 15% reserve in prepped staging',
+            'Release reserve batch upon mid-shift turnout verification',
+          ],
+          caveats: explanation.caveats || ['Attendance velocity may vary with weather or local events.'],
+          isFallback: explanation.isFallback,
+        }}
+        provider={explanation.provider}
+      />
     </div>
   );
 }

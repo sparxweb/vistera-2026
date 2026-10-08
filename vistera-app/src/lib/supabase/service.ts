@@ -181,7 +181,8 @@ export async function loadInitialState(): Promise<PersistentState> {
           sourceType: 'Seeded Demo Partner',
           contactPerson: 'Operations Coordinator',
           phone: d.contact_phone || '+91 98100 00000',
-          openHours: d.availability || 'Immediate',
+          latitude: d.latitude,
+          longitude: d.longitude,
           lat: d.latitude,
           lng: d.longitude,
         }));
@@ -364,7 +365,7 @@ export async function persistSurplusListing(
           quantity_servings: updated.servings,
           expiry_time: new Date(Date.now() + 2.5 * 3600 * 1000).toISOString(),
           status: 'ACTIVE',
-          pickup_location: updated.kitchenLocation,
+          pickup_location: updated.pickupLocation || updated.kitchenLocation || 'Main Kitchen Despatch',
         });
     } catch (err) {
       console.warn('[FOODFLOW Supabase] Listing saved to local store:', err);

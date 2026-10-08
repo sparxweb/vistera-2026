@@ -192,7 +192,7 @@ export function OrganizationsScreen({
                   <div>
                     <div className="flex flex-wrap items-center gap-1.5 mb-1">
                       <span className="text-[10px] font-mono font-bold text-[#1B4D36] bg-[#EAF4EE] px-2 py-0.5 rounded-full border border-[#D0E7DA]">
-                        {org.sourceType}
+                        {org.sourceType || 'Seeded Demo Partner'}
                       </span>
                       <span className="text-[10px] font-bold text-[#C6682F] bg-[#FCF2EB] px-2 py-0.5 rounded-full border border-[#F6DAC8]">
                         {org.status}
@@ -235,7 +235,7 @@ export function OrganizationsScreen({
                 <div className="pt-2 border-t border-[#F0EFEB] flex items-center justify-between">
                   <span className="text-[11px] text-[#737A87] flex items-center gap-1">
                     <Phone className="w-3 h-3" />
-                    <span>{org.phone}</span>
+                    <span>{org.phone || org.contactPhone || '+91 98100 00000'}</span>
                   </span>
 
                   <button

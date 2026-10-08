@@ -1,3 +1,5 @@
+import { AIKitchenInsights } from '@/lib/ai/cleaner';
+
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 export type ConfidenceLevel = 'High' | 'Medium' | 'Low';
 export type FoodUnit = 'kg' | 'L' | 'pieces' | 'portions';
@@ -29,7 +31,6 @@ export interface HotelProfile {
 
 export type KitchenProfile = HotelProfile;
 
-
 export interface DishPreparationItem {
   id: string;
   dishName: string;
@@ -48,17 +49,26 @@ export interface DishPreparationItem {
 }
 
 export interface NumericalForecast {
+  forecastId?: string;
+  hotelId?: string;
+  hotelName?: string;
+  serviceDate?: string;
+  serviceMeal?: 'Breakfast' | 'Lunch' | 'Dinner' | string;
+  safetyBufferPct?: number;
   expectedDiners: number;
   predictedDiners: number;
   historicalAverage: number;
   predictedDemand: number; // total portions equivalent
   recommendedPreparation: number; // total portions equivalent
   bufferServings: number;
+  defaultBufferPct?: number;
   confidence: ConfidenceLevel;
   riskLevel: RiskLevel;
   engineVersion: string;
   calculatedAt: string;
   dishes: DishPreparationItem[];
+  calculationBreakdown?: ForecastCalculationBreakdown;
+  aiInsights?: AIKitchenInsights;
   factors: {
     historicalPattern: string;
     attendanceTrend: string;
@@ -68,12 +78,16 @@ export interface NumericalForecast {
 }
 
 export interface LLMExplanation {
-  provider: 'Gemini 3.8 Flash' | 'Gemini 2.5 Flash';
+  provider: string;
   summary: string;
   detailedReasoning: string[];
   operationalRecommendation: string;
   confidenceRationale: string;
   bufferAdvice: string;
+  keyFactors?: string[];
+  recommendations?: string[];
+  caveats?: string[];
+  isFallback?: boolean;
 }
 
 export interface DishConsumptionItem {
@@ -82,14 +96,20 @@ export interface DishConsumptionItem {
   preparedQuantity: number;
   servedQuantity: number;
   remainingQuantity: number;
-  status: 'BALANCED' | 'SURPLUS RISK' | 'SHORTAGE RISK' | 'SURPLUS' | 'WASTE';
+  status: 'BALANCED' | 'SURPLUS RISK' | 'SHORTAGE RISK' | 'SURPLUS' | 'SHORTAGE' | 'WASTE';
   isRecoverable: boolean;
+  recoverySafetyConfirmed?: boolean;
 }
 
 export interface ConsumptionRecord {
+  id?: string;
+  forecastId?: string;
+  serviceDate?: string;
+  serviceMeal?: string;
   date: string;
   mealsPrepared: number;
   mealsServed: number;
+  actualDiners?: number;
   remainingFood: number;
   predictedDemand: number;
   surplusDetected: number;
@@ -115,22 +135,24 @@ export type SurplusListingStatus =
 export interface SurplusListing {
   id: string;
   title: string;
-  category: 'Cooked Meals' | 'Bakery & Bread' | 'Salads & Cold Plates' | 'Soups & Stews';
+  category: 'Cooked Meals' | 'Bakery & Bread' | 'Salads & Cold Plates' | 'Soups & Stews' | string;
   servings: number;
-  unit?: FoodUnit;
   quantity?: number;
-  dishItems?: {
-    dishName: string;
-    quantity: number;
-    unit: FoodUnit;
-  }[];
-  temperatureCondition: 'Hot Held (≥63°C)' | 'Chilled (≤4°C)' | 'Ambient (Dry)';
-  preparedTime: string;
-  pickupDeadline: string;
-  kitchenLocation: string;
-  dietaryTags: string[];
-  allergens: string[];
-  notes: string;
+  unit?: FoodUnit;
+  preparedAt?: string;
+  preparedTime?: string;
+  expiresAt?: string;
+  pickupDeadline?: string;
+  storageCondition?: 'Hot-holding (≥63°C)' | 'Refrigerated (≤4°C)' | 'Ambient / Dry' | string;
+  temperatureCondition?: string;
+  temperatureLoggedCelsius?: number;
+  pickupLocation?: string;
+  kitchenLocation?: string;
+  dishItems?: Array<{ dishName: string; quantity: number; unit: string }>;
+  dietaryTags?: string[];
+  allergens?: string[];
+  notes?: string;
+  assignedOrg?: string;
   status: SurplusListingStatus;
   statusHistory: {
     stage: SurplusListingStatus;
@@ -138,14 +160,12 @@ export interface SurplusListing {
     timestamp: string;
     completed: boolean;
   }[];
-  assignedOrg?: string;
-  assignedDriver?: string;
 }
 
 export interface RecoveryOrganization {
   id: string;
   name: string;
-  organizationType: string;
+  organizationType: 'NGO Food Relief' | 'Community Shelter' | 'Youth Home' | 'Night Shelter' | string;
   verified: boolean;
   verifiedBadgeText: string;
   distanceKm: number;
@@ -156,13 +176,18 @@ export interface RecoveryOrganization {
   dailyIntakeCapacity: number;
   currentAvailableCapacity: number;
   foodCategoryNeeded: string;
-  status: 'Accepting' | 'On Standby' | 'Capacity Full';
-  sourceType: 'Seeded Demo Partner' | 'Verified Public Source';
-  contactPerson: string;
-  phone: string;
-  openHours: string;
-  lat: number;
-  lng: number;
+  status: 'Accepting' | 'Full Today' | 'On Route';
+  contactPhone?: string;
+  phone?: string;
+  contactPerson?: string;
+  operatingHours?: string;
+  openHours?: string;
+  latitude?: number;
+  longitude?: number;
+  lat?: number;
+  lng?: number;
+  sourceType?: string;
+  isBestMatch?: boolean;
 }
 
 export interface HistoryRecord {
@@ -174,24 +199,54 @@ export interface HistoryRecord {
   actualServed: number;
   variance: number;
   surplus: number;
-  recoveryStatus: 'Recovered' | 'Internal Repurpose' | 'None (Zero Waste)' | 'None (Balanced)';
+  recoveryStatus: 'Recovered' | 'None (Zero Waste)' | 'None (Balanced)' | 'Pending Verification' | 'Internal Repurpose' | string;
+  verified?: boolean;
 }
 
 export interface SystemNotification {
   id: string;
+  type: 'INFO' | 'WARNING' | 'ALERT' | 'SUCCESS' | 'info' | 'warning' | 'alert' | 'success';
   title: string;
   message: string;
   timestamp: string;
-  type: 'alert' | 'success' | 'info';
   read: boolean;
+}
+
+export interface PatternAnalysisOutput {
+  dayOfWeekAverages: {
+    day: string;
+    averageDiners: number;
+    sampleSize: number;
+    typicalWastagePct?: number;
+    averageConsumptionRateKg?: number;
+    varianceVsMeanPct?: number;
+  }[];
+  mealAverages: {
+    meal: ServiceType;
+    averageDiners: number;
+    sampleSize: number;
+    typicalWastagePct?: number;
+    averageConsumptionRateKg?: number;
+  }[];
+  weekdayAverage: number;
+  weekendAverage: number;
+  weekdayVsWeekendPct: number;
+  recent7DayTrendPct?: number;
+  recentTrendDirection?: string;
+  specialEventMultiplier?: number;
+  confidenceScore?: number;
+  confidenceLabel?: string;
+  totalHistoricalRecords?: number;
+  dateRangeCovered?: string;
+  notes?: string;
 }
 
 export interface ForecastCalculationBreakdown {
   serviceType: ServiceType;
   expectedCustomers: number;
-  comparableBaseline: number; // baseline from comparable historical shifts
+  comparableBaseline: number;
   dayOfWeek: string;
-  dayOfWeekEffectPct: number; // e.g. +4.8%
+  dayOfWeekEffectPct: number;
   dayOfWeekEffectDiners: number;
   isWeekend: boolean;
   weekendEffectPct: number;
@@ -202,41 +257,18 @@ export interface ForecastCalculationBreakdown {
   recentTrendPct: number;
   recentTrendDiners: number;
   unconstrainedPrediction: number;
-  hotelCapacityLimit: number; // 1000
+  hotelCapacityLimit: number;
   isCapacityConstrained: boolean;
   finalPredictedDiners: number;
 }
 
-export interface PatternAnalysisOutput {
-  dayOfWeekAverages: {
-    day: string;
-    averageDiners: number;
-    sampleSize: number;
-    varianceVsMeanPct: number;
-  }[];
-  weekdayAverage: number;
-  weekendAverage: number;
-  weekdayVsWeekendPct: number;
-  mealAverages: {
-    meal: ServiceType;
-    averageDiners: number;
-    averageConsumptionRateKg: number;
-    typicalWastagePct: number;
-  }[];
-  recent7DayTrendPct: number;
-  recentTrendDirection: 'Upward' | 'Stable' | 'Downward';
-  specialEventMultiplier: number;
-  confidenceScore: number; // 0 - 100
-  confidenceLabel: ConfidenceLevel;
-  totalHistoricalRecords: number;
-  dateRangeCovered: string;
-}
-
-export interface OrganizationMatchRecommendation {
-  organization: RecoveryOrganization;
-  matchScore: number; // 0 - 100
+export interface MatchScoreResult {
+  score: number;
+  foodTypeScore: number;
+  proximityScore: number;
+  capacityScore: number;
   distanceKm: number;
-  foodTypeFit: boolean;
+  foodCategoryMatch: boolean;
   capacityFit: boolean;
   matchReasons: string[];
 }
@@ -263,11 +295,11 @@ export interface ForecastValidationMetrics {
   trainRecordCount: number;
   holdoutRecordCount: number;
   evaluationWindow: string;
-  modelMAE: number; // Mean Absolute Error in diner count (e.g. 14.2 diners)
-  baselineMAE: number; // Naive comparable baseline MAE (e.g. 29.8 diners)
-  modelMAPE: number; // Mean Absolute Percentage Error (e.g. 1.84%)
-  baselineMAPE: number; // Baseline MAPE (e.g. 3.92%)
-  improvementPct: number; // Percentage improvement over naive baseline (e.g. 52.3%)
+  modelMAE: number;
+  baselineMAE: number;
+  modelMAPE: number;
+  baselineMAPE: number;
+  improvementPct: number;
   holdoutComparison: {
     serviceDate: string;
     meal: ServiceType;
@@ -279,4 +311,3 @@ export interface ForecastValidationMetrics {
   }[];
   explanation: string;
 }
-

@@ -11,11 +11,11 @@ import {
   BarChart3, 
   History, 
   Truck, 
-  Cpu, 
-  ArrowRight,
   Building2,
-  Layers
+  Layers,
+  LogOut
 } from 'lucide-react';
+
 export type ScreenId =
   | 'overview'
   | 'login'
@@ -35,75 +35,97 @@ interface HeaderProps {
   onNavigate: (screen: ScreenId) => void;
 }
 
+const NAV_ITEMS: { id: ScreenId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { id: 'dashboard', label: 'Overview', icon: BarChart3 },
+  { id: 'forecast', label: 'Demand Forecast', icon: TrendingUp },
+  { id: 'preparation', label: 'Food Preparation', icon: UtensilsCrossed },
+  { id: 'consumption', label: 'Service Tracking', icon: Layers },
+  { id: 'organizations', label: 'Food Recovery', icon: Truck },
+  { id: 'history', label: 'History & Accuracy', icon: History },
+  { id: 'settings', label: 'Integrations & Settings', icon: Settings },
+];
+
 export function Header({ activeScreen, onNavigate }: HeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isLanding = activeScreen === 'overview';
 
-  // Scroll detection for cinematic smooth navbar transition
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 24);
+      setIsScrolled(window.scrollY > 12);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const handleNavClick = (id: ScreenId) => {
+    onNavigate(id);
+    setMobileMenuOpen(false);
+  };
+
+  const isNavActive = (id: ScreenId) => {
+    if (id === 'dashboard') return activeScreen === 'dashboard';
+    if (id === 'organizations') return activeScreen === 'organizations' || activeScreen === 'recovery';
+    if (id === 'history') return activeScreen === 'history' || activeScreen === 'analysis';
+    return activeScreen === id;
+  };
+
   return (
     <header
-      className={`sticky top-0 z-40 w-full transition-all duration-300 ${
+      className={`sticky top-0 z-40 w-full transition-all duration-200 h-16 ${
         isScrolled || !isLanding
-          ? 'bg-[#FBFBFA]/95 backdrop-blur-md border-b border-[#E6E4DC] shadow-[0_2px_12px_rgba(20,22,24,0.03)]'
+          ? 'bg-[#FAF9F5]/95 backdrop-blur-md border-b border-[#E6E4DC] shadow-[0_1px_4px_rgba(20,22,24,0.03)]'
           : 'bg-transparent border-b border-transparent'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18">
-          {/* LEFT: Official Brand Logo Asset */}
-          <div className="flex items-center gap-3">
+      <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-full gap-4">
+          
+          {/* ============================================================== */}
+          {/* LEFT: Logo & Compact Facility Indicator                       */}
+          {/* ============================================================== */}
+          <div className="flex items-center gap-3 shrink-0">
             <button
               type="button"
-              onClick={() => onNavigate('overview')}
+              onClick={() => handleNavClick('dashboard')}
               className="flex items-center gap-2 group transition-opacity hover:opacity-90 cursor-pointer"
-              aria-label="FOODFLOW Home"
+              aria-label="FOODFLOW Operations Home"
             >
-              <div className="relative h-8 sm:h-9 w-32 sm:w-36 flex items-center">
+              <div className="relative h-8 w-28 sm:w-32 flex items-center">
                 <Image
                   src="/foodflow-logo.jpeg"
                   alt="FOODFLOW"
-                  width={280}
-                  height={75}
+                  width={240}
+                  height={65}
                   priority
                   className="h-full w-auto object-contain mix-blend-multiply"
                 />
               </div>
             </button>
 
-            {/* Shift Context Indicator (Only when in Kitchen App) */}
             {!isLanding && (
-              <div className="hidden md:flex items-center gap-2 pl-4 border-l border-[#E6E4DC] text-xs">
-                <span className="w-2 h-2 rounded-full bg-[#1B4D36] animate-pulse" />
-                <span className="font-semibold text-[#141618]">Central Kitchen</span>
+              <div className="hidden 2xl:flex items-center gap-2 pl-3 border-l border-[#E6E4DC] text-[11px] text-[#585E68]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1B4D36] animate-pulse" />
+                <span className="font-semibold text-[#141618]">DGH Hyderabad</span>
                 <span className="text-[#8A929E]">•</span>
-                <span className="text-[#585E68]">Lunch Shift Active</span>
+                <span>Active Shift</span>
               </div>
             )}
           </div>
 
           {/* ============================================================== */}
-          {/* CENTER: Context-Aware Navigation */}
+          {/* CENTER: 7 Operational Sections (Clean, un-numbered, no wraps) */}
           {/* ============================================================== */}
           {isLanding ? (
-            /* PUBLIC LANDING NAVBAR */
-            <nav className="hidden md:flex items-center gap-8">
+            <nav className="hidden lg:flex items-center gap-7">
               <a
                 href="#problem"
                 onClick={(e) => {
                   e.preventDefault();
                   document.getElementById('problem')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="text-xs font-semibold text-[#585E68] hover:text-[#141618] transition-colors"
+                className="text-xs font-semibold text-[#585E68] hover:text-[#141618] transition-colors whitespace-nowrap"
               >
                 The Problem
               </a>
@@ -113,7 +135,7 @@ export function Header({ activeScreen, onNavigate }: HeaderProps) {
                   e.preventDefault();
                   document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="text-xs font-semibold text-[#585E68] hover:text-[#141618] transition-colors"
+                className="text-xs font-semibold text-[#585E68] hover:text-[#141618] transition-colors whitespace-nowrap"
               >
                 How It Works
               </a>
@@ -123,251 +145,162 @@ export function Header({ activeScreen, onNavigate }: HeaderProps) {
                   e.preventDefault();
                   document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="text-xs font-semibold text-[#585E68] hover:text-[#141618] transition-colors"
+                className="text-xs font-semibold text-[#585E68] hover:text-[#141618] transition-colors whitespace-nowrap"
               >
                 7-Stage Loop
               </a>
             </nav>
           ) : (
-            /* KITCHEN APPLICATION NAVBAR (7 B2B OPERATIONAL SECTIONS) */
-            <nav className="hidden xl:flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onNavigate('dashboard')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  activeScreen === 'dashboard'
-                    ? 'bg-[#1B4D36] text-white shadow-xs'
-                    : 'text-[#585E68] hover:text-[#141618] hover:bg-[#F4F3ED]'
-                }`}
-                title="Overview & 4 Core Operational Answers"
-              >
-                1. Overview
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('forecast')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  activeScreen === 'forecast'
-                    ? 'bg-[#1B4D36] text-white shadow-xs'
-                    : 'text-[#585E68] hover:text-[#141618] hover:bg-[#F4F3ED]'
-                }`}
-                title="Demand Forecast & Explainable Calculation"
-              >
-                2. Demand Forecast
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('preparation')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  activeScreen === 'preparation'
-                    ? 'bg-[#1B4D36] text-white shadow-xs'
-                    : 'text-[#585E68] hover:text-[#141618] hover:bg-[#F4F3ED]'
-                }`}
-                title="Food Preparation & Batch Staging Calculator"
-              >
-                3. Food Preparation
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('consumption')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  activeScreen === 'consumption'
-                    ? 'bg-[#1B4D36] text-white shadow-xs'
-                    : 'text-[#585E68] hover:text-[#141618] hover:bg-[#F4F3ED]'
-                }`}
-                title="Actual Service Tracking & Remaining Food"
-              >
-                4. Service Tracking
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('organizations')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  activeScreen === 'recovery' || activeScreen === 'organizations'
-                    ? 'bg-[#1B4D36] text-white shadow-xs'
-                    : 'text-[#585E68] hover:text-[#141618] hover:bg-[#F4F3ED]'
-                }`}
-                title="Hyderabad Recovery Grid & Partner Matching"
-              >
-                5. Food Recovery
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('history')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  activeScreen === 'history' || activeScreen === 'analysis'
-                    ? 'bg-[#1B4D36] text-white shadow-xs'
-                    : 'text-[#585E68] hover:text-[#141618] hover:bg-[#F4F3ED]'
-                }`}
-                title="90-Day Archive & Chronological Holdout Validation"
-              >
-                6. History & Accuracy
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onNavigate('settings')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  activeScreen === 'settings'
-                    ? 'bg-[#1B4D36] text-white shadow-xs'
-                    : 'text-[#585E68] hover:text-[#141618] hover:bg-[#F4F3ED]'
-                }`}
-                title="Integrations, Supabase Health & Parameters"
-              >
-                7. Integrations & Settings
-              </button>
+            <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 overflow-x-auto py-1 scrollbar-none">
+              {NAV_ITEMS.map((item) => {
+                const active = isNavActive(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleNavClick(item.id)}
+                    className={`px-2.5 xl:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                      active
+                        ? 'bg-[#1B4D36] text-white shadow-xs'
+                        : 'text-[#585E68] hover:text-[#141618] hover:bg-[#F0EFEB]'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
             </nav>
           )}
 
           {/* ============================================================== */}
-          {/* RIGHT: Primary Action / Settings Dock */}
+          {/* RIGHT: Compact Hotel Badge, Settings & Exit                   */}
           {/* ============================================================== */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 shrink-0">
             {isLanding ? (
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => onNavigate('login')}
-                  className="px-3 py-1.5 rounded-xl border border-[#E6E4DC] text-xs font-semibold text-[#141618] hover:bg-[#FAF9F5] transition-colors flex items-center gap-1.5 cursor-pointer"
+                  onClick={() => handleNavClick('login')}
+                  className="px-3 py-1.5 rounded-lg border border-[#E6E4DC] text-xs font-semibold text-[#141618] hover:bg-[#F7F6F0] transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
                   <Building2 className="w-3.5 h-3.5 text-[#1B4D36]" />
                   <span>Demo Login</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => onNavigate('dashboard')}
-                  className="px-4 py-2 rounded-xl bg-[#0E382B] hover:bg-[#164E3D] text-white text-xs font-semibold shadow-xs hover:shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                  onClick={() => handleNavClick('dashboard')}
+                  className="px-3.5 py-1.5 rounded-lg bg-[#1B4D36] hover:bg-[#16402D] text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
-                  <span>Open Dashboard</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <span>Open Platform</span>
                 </button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => onNavigate('login')}
-                  className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#D0E7DA] bg-[#EAF4EE] text-xs font-semibold text-[#1B4D36] hover:bg-[#D8EADB] transition-colors cursor-pointer"
-                  title="Facility: Deccan Grand Hotel (Click to switch)"
+                {/* Compact Hotel Badge */}
+                <div
+                  className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[#D0E7DA] bg-[#EAF4EE] text-xs font-semibold text-[#1B4D36] whitespace-nowrap"
+                  title="Demo Environment: Deccan Grand Hotel — Hyderabad"
                 >
                   <Building2 className="w-3.5 h-3.5" />
-                  <span className="max-w-[130px] truncate">Deccan Grand Hotel</span>
-                </button>
+                  <span className="max-w-[140px] truncate">Deccan Grand Hotel</span>
+                </div>
 
+                {/* Settings Icon */}
                 <button
                   type="button"
-                  onClick={() => onNavigate('settings')}
-                  className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                  onClick={() => handleNavClick('settings')}
+                  className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
                     activeScreen === 'settings'
                       ? 'bg-[#1B4D36] text-white border-[#1B4D36]'
-                      : 'border-[#E6E4DC] text-[#585E68] hover:text-[#141618] hover:bg-[#FAF9F5]'
+                      : 'border-[#E6E4DC] text-[#585E68] hover:text-[#141618] hover:bg-[#F7F6F0]'
                   }`}
-                  title="Facility Settings & API Health"
-                  aria-label="Facility Settings & API Health"
+                  title="System Integrations & Settings"
+                  aria-label="Settings"
                 >
                   <Settings className="w-4 h-4" />
                 </button>
 
+                {/* Exit Action */}
                 <button
                   type="button"
-                  onClick={() => onNavigate('overview')}
-                  className="hidden sm:inline-flex text-xs font-semibold text-[#737A87] hover:text-[#141618] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                  onClick={() => handleNavClick('overview')}
+                  className="text-xs font-semibold text-[#737A87] hover:text-[#141618] px-2 py-1 rounded-md transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                  title="Exit to public overview"
                 >
-                  Exit
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Exit</span>
                 </button>
               </div>
             )}
 
-            {/* Mobile Hamburger Button */}
+            {/* Mobile / Tablet Hamburger Button */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-xl border border-[#E6E4DC] text-[#141618] hover:bg-[#FAF9F5] cursor-pointer"
+              className="lg:hidden p-1.5 rounded-lg border border-[#E6E4DC] text-[#141618] hover:bg-[#F7F6F0] cursor-pointer"
               aria-label="Toggle navigation menu"
             >
-              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
       </div>
 
       {/* ============================================================== */}
-      {/* MOBILE FULL-HEIGHT SLIDING DRAWER */}
+      {/* MOBILE / TABLET SLIDING NAVIGATION DRAWER                      */}
       {/* ============================================================== */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 top-18 bg-[#FBFBFA] z-50 border-t border-[#E6E4DC] p-6 overflow-y-auto animate-in slide-in-from-top duration-200">
-          <div className="space-y-6 max-w-sm mx-auto">
-            {/* Main Operational Sections */}
-            <div>
-              <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#8A929E] mb-2">
-                HOSPITALITY OPERATIONS (7 SECTIONS)
+        <div className="lg:hidden fixed inset-x-0 top-16 bg-[#FAF9F5] z-50 border-b border-[#E6E4DC] shadow-lg p-5 animate-in slide-in-from-top-2 duration-150">
+          <div className="max-w-md mx-auto space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E6E4DC]">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-[#1B4D36]" />
+                <span className="text-xs font-bold text-[#141618]">Deccan Grand Hotel — Hyderabad</span>
               </div>
-              <div className="space-y-1">
-                {[
-                  { id: 'dashboard' as ScreenId, label: '1. Overview', icon: BarChart3 },
-                  { id: 'forecast' as ScreenId, label: '2. Demand Forecast', icon: TrendingUp },
-                  { id: 'preparation' as ScreenId, label: '3. Food Preparation', icon: UtensilsCrossed },
-                  { id: 'consumption' as ScreenId, label: '4. Service Tracking', icon: Layers },
-                  { id: 'organizations' as ScreenId, label: '5. Food Recovery (Map)', icon: Truck },
-                  { id: 'history' as ScreenId, label: '6. History & Accuracy', icon: History },
-                  { id: 'settings' as ScreenId, label: '7. Integrations & Settings', icon: Settings },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        onNavigate(item.id);
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-3 transition-colors ${
-                        activeScreen === item.id ? 'bg-[#1B4D36] text-white' : 'text-[#141618] hover:bg-[#F4F3ED]'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <span className="text-[10px] font-mono bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded font-bold">
+                Demo
+              </span>
             </div>
 
-            {/* System Section */}
-            <div>
-              <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#8A929E] mb-2">
-                SYSTEM & SESSIONS
-              </div>
-              <div className="space-y-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onNavigate('architecture');
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-3 transition-colors ${
-                    activeScreen === 'architecture' ? 'bg-[#1B4D36] text-white' : 'text-[#141618] hover:bg-[#F4F3ED]'
-                  }`}
-                >
-                  <Cpu className="w-4 h-4" />
-                  <span>AI Architecture & Logic</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onNavigate('overview');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#737A87] hover:bg-[#F4F3ED] transition-colors"
-                >
-                  Exit to Landing Page
-                </button>
-              </div>
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#8A929E] block px-2 mb-1">
+                OPERATIONAL SECTIONS
+              </span>
+              {NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const active = isNavActive(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleNavClick(item.id)}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-3 transition-colors ${
+                      active ? 'bg-[#1B4D36] text-white' : 'text-[#141618] hover:bg-[#F0EFEB]'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 border-t border-[#E6E4DC] flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => handleNavClick('overview')}
+                className="text-xs font-semibold text-[#737A87] hover:text-[#141618] py-1.5 px-2 rounded flex items-center gap-1.5"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Exit to Landing Screen</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-xs font-bold text-[#1B4D36] py-1.5 px-3 rounded-lg bg-[#EAF4EE]"
+              >
+                Close Menu
+              </button>
             </div>
           </div>
         </div>

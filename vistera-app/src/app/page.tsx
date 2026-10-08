@@ -233,7 +233,9 @@ export default function Home() {
         {activeScreen === 'preparation' && (
           <PreparationScreen
             onNavigate={navigateTo}
-            predictedDiners={forecast.predictedDemand || 795}
+            predictedDiners={forecast.predictedDiners || forecast.predictedDemand || 795}
+            initialService={(forecast.serviceMeal?.toUpperCase() as ServiceType) || 'LUNCH'}
+            forecast={forecast}
           />
         )}
 
@@ -241,9 +243,7 @@ export default function Home() {
           <ConsumptionScreen
             onNavigate={navigateTo}
             onUpdateConsumption={handleUpdateConsumption}
-            predicted={forecast.predictedDemand}
-            initialPrepared={forecast.recommendedPreparation}
-            initialServed={consumption.mealsServed}
+            forecast={forecast}
           />
         )}
 

@@ -13,6 +13,8 @@ import {
 import { calculateDemandForecast } from '../src/lib/forecast/engine.ts';
 import { calculateHaversineDistance, formatStraightLineDistance } from '../src/lib/geo/distance.ts';
 import { DEMO_HOTEL, DEMO_ORGANIZATIONS } from '../src/lib/demoData.ts';
+import { calculateServiceBalance, calculateDishBalance } from '../src/lib/business/balance.ts';
+import { cleanRawAIResponse, parseKitchenInsights } from '../src/lib/ai/cleaner.ts';
 
 let passedTests = 0;
 let totalTests = 0;
@@ -210,6 +212,189 @@ test('Surplus listing transitions through simulated stages', () => {
   }
   assert.strictEqual(stages[currentStageIndex], 'collected');
 });
+
+// 8. SERVICE BALANCE, SURPLUS & SHORTAGE (NO CLAMPING DEFICITS TO 0)
+console.log('\n8. SERVICE BALANCE, SURPLUS & SHORTAGE LOGIC:');
+test('Surplus detected when prepared > served, with signed remaining quantity', () => {
+  const result = calculateServiceBalance({ preparedServings: 819, servedServings: 790 });
+  assert.strictEqual(result.remainingServings, 29);
+  assert.strictEqual(result.surplusServings, 29);
+  assert.strictEqual(result.shortageServings, 0);
+  assert.strictEqual(result.balanceStatus, 'SURPLUS');
+  assert.strictEqual(result.isShortage, false);
+});
+
+test('Kitchen shortage is preserved (NOT clamped to zero)', () => {
+  // Prepared 750, served 780 -> remaining must be -30, shortage 30
+  const result = calculateServiceBalance({ preparedServings: 750, servedServings: 780 });
+  assert.strictEqual(result.remainingServings, -30, 'Remaining servings must be -30, not clamped to 0');
+  assert.strictEqual(result.shortageServings, 30, 'Shortage count must be 30');
+  assert.strictEqual(result.surplusServings, 0);
+  assert.strictEqual(result.balanceStatus, 'SHORTAGE');
+  assert.strictEqual(result.isShortage, true);
+  assert.ok(result.notes.includes('Kitchen shortage of 30 servings'));
+});
+
+test('Exact match yields BALANCED status with 0 remaining', () => {
+  const result = calculateServiceBalance({ preparedServings: 800, servedServings: 800 });
+  assert.strictEqual(result.remainingServings, 0);
+  assert.strictEqual(result.surplusServings, 0);
+  assert.strictEqual(result.shortageServings, 0);
+  assert.strictEqual(result.balanceStatus, 'BALANCED');
+});
+
+test('Surplus requires temperature holding verification before recovery eligibility is confirmed', () => {
+  const unverified = calculateServiceBalance({ 
+    preparedServings: 820, 
+    servedServings: 780, 
+    tempHoldingVerified: false 
+  });
+  assert.strictEqual(unverified.recoveryEligibility.status, 'requires_confirmation');
+  assert.strictEqual(unverified.recoveryEligibility.isEligibleForRecovery, false);
+  assert.ok(unverified.recoveryEligibility.reason.includes('Eligibility requires confirmation'));
+
+  const verified = calculateServiceBalance({ 
+    preparedServings: 820, 
+    servedServings: 780, 
+    tempHoldingVerified: true 
+  });
+  assert.strictEqual(verified.recoveryEligibility.status, 'eligible');
+  assert.strictEqual(verified.recoveryEligibility.isEligibleForRecovery, true);
+});
+
+test('Dish-level balance preserves negative remaining quantities for individual menu items', () => {
+  const dishResult = calculateDishBalance('Tomato Dal', 16.0, 18.5, 'L', false);
+  assert.strictEqual(dishResult.remainingQuantity, -2.5, 'Dish remaining must be -2.5');
+  assert.strictEqual(dishResult.status, 'SHORTAGE');
+});
+
+// 9. AI REASONING SANITIZER & JSON CONTRACT
+console.log('\n9. AI REASONING SANITIZER & STRICT JSON PARSER:');
+test('Sanitizer completely strips Nemotron thinking process blocks', () => {
+  const nemotronOutput = `Here's a thinking process:
+1. Analyze User Input: The user wants a forecast explanation.
+2. Constraints: Do not modify numbers.
+3. Role: Kitchen operations assistant.
+
+{
+  "summary": "Stable lunch attendance expected with 795 patrons.",
+  "key_factors": ["Wednesday mid-week baseline", "Normal weather pattern"],
+  "recommendations": ["Prepare 85% batch by 11:45 AM", "Hold 15% reserve"],
+  "caveats": ["Weather shift could modify evening turnout"]
+}`;
+
+  const cleaned = cleanRawAIResponse(nemotronOutput);
+  assert.ok(!cleaned.includes("Here's a thinking process"), 'Must not include thinking process');
+  assert.ok(!cleaned.includes('Analyze User Input'), 'Must not include prompt analysis');
+  assert.ok(!cleaned.includes('Constraints:'), 'Must not include constraints instruction');
+  assert.ok(cleaned.startsWith('{'), 'Cleaned text should start with JSON object');
+});
+
+test('Sanitizer strips <think> tags from thinking models', () => {
+  const rawWithThink = `<think>Internal thoughts about calculating diners...</think>{
+  "summary": "Clean summary without thinking tags.",
+  "key_factors": ["Factor 1"],
+  "recommendations": ["Rec 1"],
+  "caveats": []
+}`;
+  const cleaned = cleanRawAIResponse(rawWithThink);
+  assert.ok(!cleaned.includes('<think>'), 'Must strip <think>');
+  assert.ok(!cleaned.includes('Internal thoughts'), 'Must strip thinking content');
+});
+
+test('Parser successfully parses strict JSON into KitchenInsightsData', () => {
+  const validJson = JSON.stringify({
+    summary: 'Clear forecast explanation.',
+    key_factors: ['Factor A', 'Factor B'],
+    recommendations: ['Step 1', 'Step 2'],
+    caveats: ['Minor caveat']
+  });
+
+  const parsed = parseKitchenInsights(validJson, 795, 819);
+  assert.strictEqual(parsed.summary, 'Clear forecast explanation.');
+  assert.strictEqual(parsed.key_factors.length, 2);
+  assert.strictEqual(parsed.recommendations.length, 2);
+  assert.strictEqual(parsed.caveats.length, 1);
+});
+
+test('Parser provides graceful fallback when JSON is malformed without crashing', () => {
+  const brokenJson = 'Random plain text error from network without any JSON';
+  const fallback = parseKitchenInsights(brokenJson, 795, 819);
+  assert.ok(fallback.summary.length > 0);
+  assert.ok(fallback.key_factors.length > 0);
+  assert.ok(fallback.recommendations.length > 0);
+});
+
+// 10. CROSS-PAGE STATE CONSISTENCY
+console.log('\n10. CROSS-PAGE STATE MODEL CONSISTENCY:');
+test('Forecast generation produces complete metadata model including forecastId', () => {
+  const forecast = calculateDemandForecast({
+    expectedDiners: 820,
+    serviceMeal: 'Lunch',
+    dayOfWeek: 'Wednesday',
+    safetyBufferPct: 3.0,
+    hotelCapacity: 1000
+  });
+
+  assert.ok(forecast.forecastId.startsWith('fc-'), 'Must have generated forecastId');
+  assert.strictEqual(forecast.serviceMeal, 'Lunch');
+  assert.strictEqual(forecast.expectedDiners, 820);
+  assert.strictEqual(forecast.predictedDemand, forecast.predictedDiners);
+  assert.strictEqual(forecast.safetyBufferPct, 3.0);
+  assert.ok(forecast.dishes && forecast.dishes.length > 0, 'Must include dish-level preparation targets');
+});
+
+test('Service tracking consumes identical forecast numbers without independent invention', () => {
+  const forecast = calculateDemandForecast({
+    expectedDiners: 820,
+    serviceMeal: 'Lunch',
+    dayOfWeek: 'Wednesday',
+    safetyBufferPct: 3.0
+  });
+
+  // Service tracking receives forecast
+  const prepTarget = forecast.recommendedPreparation;
+  const predDiners = forecast.predictedDemand;
+  assert.ok(predDiners > 0, 'Predicted diners must be positive');
+
+  // Actual kitchen service recorded
+  const actualPrepared = prepTarget; // 819
+  const actualServed = 790;
+  const balance = calculateServiceBalance({
+    preparedServings: actualPrepared,
+    servedServings: actualServed
+  });
+
+  assert.strictEqual(actualPrepared, forecast.recommendedPreparation, 'Preparation target must match forecast');
+  assert.strictEqual(balance.remainingServings, 819 - 790);
+  assert.strictEqual(balance.balanceStatus, 'SURPLUS');
+});
+
+// 11. SAFETY BUFFER RANGE & MEAL DYNAMICS
+console.log('\n11. SAFETY BUFFER & DISH SIZING ACCURACY:');
+test('Zero safety buffer yields recommended preparation == predicted diners', () => {
+  const zeroBuffer = calculateDemandForecast({
+    expectedDiners: 820,
+    serviceMeal: 'Lunch',
+    safetyBufferPct: 0.0
+  });
+  assert.strictEqual(zeroBuffer.recommendedPreparation, zeroBuffer.predictedDemand);
+});
+
+test('Higher safety buffer (8%) scales preparation proportionally', () => {
+  const highBuffer = calculateDemandForecast({
+    expectedDiners: 820,
+    serviceMeal: 'Lunch',
+    safetyBufferPct: 8.0
+  });
+  const expectedServings = zeroBufferCalculation(highBuffer.predictedDemand, 8.0);
+  assert.strictEqual(highBuffer.recommendedPreparation, expectedServings);
+});
+
+function zeroBufferCalculation(diners, bufferPct) {
+  const bufferServings = Math.round(diners * (bufferPct / 100));
+  return diners + bufferServings;
+}
 
 // SUMMARY
 console.log('\n============================================================');

@@ -20,3 +20,4 @@ export async function askNvidia(prompt: string): Promise<string> {
 
     return response.choices[0]?.message?.content ?? "";
 }
+

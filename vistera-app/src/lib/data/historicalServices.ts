@@ -334,6 +334,7 @@ export function calculatePatternAnalysis(): PatternAnalysisOutput {
     return {
       meal,
       averageDiners: avgDiners,
+      sampleSize: count,
       averageConsumptionRateKg: typicalRate,
       typicalWastagePct: typicalWastage,
     };

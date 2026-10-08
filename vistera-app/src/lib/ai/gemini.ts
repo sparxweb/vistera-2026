@@ -1,9 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
+import { cleanRawAIResponse } from "./cleaner";
 
 const gemini = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY,
     httpOptions: {
-        timeout: 30000,
+        timeout: 25000,
     },
 });
 
@@ -15,15 +16,10 @@ export async function askGemini(prompt: string): Promise<string> {
             thinkingConfig: {
                 thinkingBudget: 0,
             },
-            systemInstruction: "You are the FOODFLOW operational reasoning copilot. Provide direct, concise operational advice without any chain-of-thought, reasoning steps, or preamble.",
+            systemInstruction: "You are the FOODFLOW operational reasoning copilot. Provide direct, concise operational advice without any chain-of-thought, reasoning steps, or preamble. When JSON is requested, output valid JSON only.",
         },
     });
 
     const raw = response.text ?? "";
-    // If any chain-of-thought preamble leaked through, strip it cleanly
-    if (raw.includes("Here's a thinking process") || raw.includes("Here's a thinking")) {
-        const parts = raw.split(/\n\n(?=[A-Z])/);
-        return parts[parts.length - 1]?.trim() || raw;
-    }
-    return raw.trim();
+    return cleanRawAIResponse(raw);
 }
