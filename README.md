@@ -1,19 +1,32 @@
-# VISTERA 2026 — Hackathon Workspace
+# FOODFLOW — AI-Powered Food Waste Prevention & Surplus Recovery Platform
 
-Welcome to the official workspace for **VISTERA 2026**, a 36-hour hackathon project.
-
-## Overview
-
-This repository serves as the dedicated staging and development environment for the hackathon. 
-
-- **Event:** VISTERA 2026
-- **Format:** 36-Hour Hackathon
-- **Status:** Pre-hackathon preparation / Staging
-
-## Purpose
-
-- Provide a clean workspace ready for rapid architecture, prototyping, and deployment once the official problem statement is announced.
-- Structure and maintain project source code, documentation, and assets throughout the 36-hour sprint.
+> **Predict. Prevent. Recover.**  
+> **Event:** VISTERA 2026  
+> **Problem Statement:** PS-44 — Cutting Food Waste  
+> **Milestone:** Round 2 Working MVP
 
 ---
-*Note: Project scaffolding, dependencies, and core architecture will be initialized once the problem statement is released.*
+
+## Quick Navigation
+
+- **Application Directory:** [`/vistera-app`](./vistera-app)
+- **Technical Architecture:** [`/vistera-app/ARCHITECTURE.md`](./vistera-app/ARCHITECTURE.md)
+- **Database Schema:** [`/vistera-app/DATABASE.md`](./vistera-app/DATABASE.md)
+- **Round 2 Progress Report:** [`/vistera-app/ROUND2_PROGRESS.md`](./vistera-app/ROUND2_PROGRESS.md)
+- **Database Migrations:** [`/vistera-app/supabase/migrations`](./vistera-app/supabase/migrations)
+
+---
+
+## Round 2 Working Vertical Slice
+
+FOODFLOW has completed its first operational closed loop:
+
+$$\mathbf{FORECAST} \longrightarrow \mathbf{PREPARE} \longrightarrow \mathbf{MONITOR} \longrightarrow \mathbf{DETECT}$$
+
+### Running the Application Locally
+```bash
+cd vistera-app
+npm install
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) to experience the live application.
