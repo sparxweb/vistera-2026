@@ -151,33 +151,100 @@ export function ArchitectureScreen() {
         </div>
       </div>
 
-      {/* Security Architecture & Environmental Variable Isolation */}
-      <div className="bg-[#FAF9F5] rounded-2xl border border-[#E6E4DC] p-6 sm:p-7 space-y-4">
-        <div className="flex items-center gap-2 text-sm font-bold text-[#141618]">
-          <Lock className="w-4 h-4 text-[#1B4D36]" />
-          <span>Security Architecture & API Key Isolation Standard</span>
+      {/* Round 2 Milestone Progress Status */}
+      <div className="bg-white rounded-3xl border border-[#E5E5DE] p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="flex items-center justify-between pb-4 border-b border-[#E5E5DE]">
+          <div>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#0E382B] bg-[#E8EFEA] px-2.5 py-0.5 rounded border border-[#C5DACD]">
+              VISTERA 2026 • ROUND 2 MILESTONE
+            </span>
+            <h3 className="text-lg font-bold text-[#0E382B] mt-1">
+              Development & Implementation Status
+            </h3>
+          </div>
+          <span className="text-xs font-mono font-bold text-[#10B981] bg-[#E8EFEA] px-3 py-1 rounded-full border border-[#C5DACD]">
+            CORE VERTICAL SLICE WORKING
+          </span>
         </div>
-        <p className="text-xs text-[#525866] leading-relaxed max-w-3xl">
-          In strict accordance with the hackathon specification, all credentials (<code className="font-mono text-[11px]">GEMINI_API_KEY</code>, <code className="font-mono text-[11px]">SUPABASE_SERVICE_ROLE_KEY</code>) are quarantined on the Next.js server runtime. No raw LLM calls, private service keys, or unauthenticated writes are exposed in frontend client bundles.
-        </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-2">
-          <div className="p-3 bg-white rounded-xl border border-[#E8E6DE]">
-            <CheckCircle2 className="w-4 h-4 text-[#1B4D36] mb-1" />
-            <strong className="text-[#141618] block">No Frontend Key Leaks</strong>
-            <span className="text-[11px] text-[#6F7682]">Server routes act as reverse proxies with rate limiting</span>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          {/* Foundation */}
+          <div className="p-4 rounded-2xl bg-[#FBFBF9] border border-[#E5E5DE] space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#0E382B] block">
+              1. Foundation
+            </span>
+            <div className="space-y-1.5 text-[#5C6658]">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <span>Git Repository Initialized</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <span>Next.js 16 App Router</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <span>REST API Routes (`/api/forecast`, `/api/consumption`)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <span>Supabase PostgreSQL Schema</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <span>Deterministic Regressor Engine</span>
+              </div>
+            </div>
           </div>
 
-          <div className="p-3 bg-white rounded-xl border border-[#E8E6DE]">
-            <CheckCircle2 className="w-4 h-4 text-[#1B4D36] mb-1" />
-            <strong className="text-[#141618] block">Bounded Temperature Prompts</strong>
-            <span className="text-[11px] text-[#6F7682]">Gemini temperature fixed at 0.2 for reproducible reasoning</span>
+          {/* Working Flow */}
+          <div className="p-4 rounded-2xl bg-[#E8EFEA] border border-[#C5DACD] space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#0E382B] block">
+              2. Working Flow (Live Demo)
+            </span>
+            <div className="space-y-1.5 text-[#0E382B] font-medium">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <span>Demand forecast calculation</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <span>Database forecast persistence</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <span>Consumption logging & balance</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <span>Surplus & shortage detection</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+                <span>Page reload persistence</span>
+              </div>
+            </div>
           </div>
 
-          <div className="p-3 bg-white rounded-xl border border-[#E8E6DE]">
-            <CheckCircle2 className="w-4 h-4 text-[#1B4D36] mb-1" />
-            <strong className="text-[#141618] block">Structured JSON Schemas</strong>
-            <span className="text-[11px] text-[#6F7682]">Strict response types enforce structured factor parsing</span>
+          {/* Next Phase */}
+          <div className="p-4 rounded-2xl bg-[#FBFBF9] border border-[#E5E5DE] space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8878] block">
+              3. Next Milestones (Roadmap)
+            </span>
+            <div className="space-y-1.5 text-[#7D8878]">
+              <div className="flex items-center gap-2">
+                <span className="w-3.5 h-3.5 rounded-full border border-[#D5D5CA] flex items-center justify-center text-[9px] shrink-0">○</span>
+                <span>Automated multi-stop courier routing</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3.5 h-3.5 rounded-full border border-[#D5D5CA] flex items-center justify-center text-[9px] shrink-0">○</span>
+                <span>Direct turnstile RFID badge IoT stream</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3.5 h-3.5 rounded-full border border-[#D5D5CA] flex items-center justify-center text-[9px] shrink-0">○</span>
+                <span>Long-term seasonal retraining cycle</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

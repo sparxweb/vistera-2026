@@ -36,9 +36,10 @@ export function ConsumptionScreen({
   const isShortage = served > prepared;
   const isBalanced = prepared === served;
 
-  const handleUpdate = (newP: number, newS: number) => {
+  const handleUpdate = async (newP: number, newS: number) => {
     setPrepared(newP);
     setServed(newS);
+
     if (onUpdateConsumption) {
       onUpdateConsumption({
         ...INITIAL_CONSUMPTION,
@@ -48,6 +49,19 @@ export function ConsumptionScreen({
         surplusDetected: Math.max(0, newP - newS),
         overproductionPercent: newP > 0 ? Number(((Math.max(0, newP - newS) / newP) * 100).toFixed(1)) : 0,
       });
+    }
+
+    try {
+      await fetch('/api/consumption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preparedQuantity: newP,
+          servedQuantity: newS,
+        }),
+      });
+    } catch (e) {
+      console.warn('[ConsumptionScreen] API call to /api/consumption failed, local state updated:', e);
     }
   };
 

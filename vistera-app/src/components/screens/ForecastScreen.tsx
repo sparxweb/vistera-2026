@@ -62,7 +62,7 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
     }
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!expectedDiners || expectedDiners <= 0 || isNaN(expectedDiners)) {
       setValidationError('Please enter a valid positive number of expected diners.');
       return;
@@ -70,9 +70,52 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
     setValidationError(null);
     setIsGenerating(true);
 
+    try {
+      const res = await fetch('/api/forecast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          expectedDiners,
+          serviceMeal: mealType,
+          menuItem: selectedMenu,
+          context: contextSignal,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          const newForecast: NumericalForecast = {
+            expectedDiners: data.expectedDiners,
+            historicalAverage: 756,
+            predictedDemand: data.predictedDemand,
+            recommendedPreparation: data.recommendedPreparation,
+            bufferServings: data.bufferServings,
+            confidence: data.confidence,
+            riskLevel: data.operationalRisk,
+            engineVersion: 'v2.4-deterministic-engine',
+            calculatedAt: 'Just now',
+            factors: data.factors,
+          };
+          const newExplanation: LLMExplanation = data.aiExplanation;
+
+          setForecast(newForecast);
+          setExplanation(newExplanation);
+          setIsGenerating(false);
+          setHasCalculated(true);
+
+          if (onForecastGenerated) {
+            onForecastGenerated(newForecast, newExplanation, selectedMenu);
+          }
+          return;
+        }
+      }
+    } catch (apiErr) {
+      console.warn('[ForecastScreen] API call failed, falling back to local forecasting engine:', apiErr);
+    }
+
+    // Fallback calculation if network or API route unavailable
     setTimeout(() => {
-      // Deterministic Forecast Engine calculation
-      // Wednesday baseline: 800 * 0.9275 = 742 predicted servings
       let mealFactor = 0.9275;
       if (mealType === 'Breakfast') mealFactor = 0.65;
       if (mealType === 'Dinner') mealFactor = 0.85;
@@ -87,7 +130,6 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
         1,
         Math.round(expectedDiners * (mealFactor + contextModifier))
       );
-      // Safety buffer of ~2.426% yields +18 servings on 742 baseline -> 760 recommended preparation
       const buffer = Math.max(1, Math.round(calculatedDemand * 0.02426));
       const recommendedPrep = calculatedDemand + buffer;
 
@@ -131,7 +173,7 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
       if (onForecastGenerated) {
         onForecastGenerated(newForecast, newExplanation, selectedMenu);
       }
-    }, 500);
+    }, 400);
   };
 
   return (
