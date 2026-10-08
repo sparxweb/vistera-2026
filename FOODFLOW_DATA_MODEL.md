@@ -10,7 +10,7 @@ FOODFLOW employs a normalized relational architecture across 9 core tables desig
 ```
 +--------------------+       +-----------------------+       +------------------------+
 |      HOTELS        |<----->|    SERVICE_RECORDS    |       |       FOOD_ITEMS       |
-| (Deccan Grand Hyd) |       | (30-day shift archive)|       | (Indian culinary items)|
+| (Deccan Grand Hyd) |       | (90-day shift archive)|       | (Indian culinary items)|
 +--------------------+       +-----------------------+       +------------------------+
          |                                                                |
          v                                                                v
@@ -50,92 +50,110 @@ Stores hotel and kitchen configuration, capacity limits, and operating coordinat
 | `dinner_capacity` | `INTEGER`| NOT NULL | Evening service capacity (`900`) |
 | `operating_days` | `TEXT` | NOT NULL | `All 7 Days (Monday – Sunday)` |
 | `default_buffer_pct`| `NUMERIC(4,2)`| NOT NULL | Default safety buffer (`3.00%`) |
-| `latitude` | `DOUBLE PRECISION`| NOT NULL | `17.4447` |
+| `latitude` | `DOUBLE PRECISION`| NOT NULL | `17.4447` (Gachibowli, Hyderabad) |
 | `longitude` | `DOUBLE PRECISION`| NOT NULL | `78.3483` |
 | `is_demo_hotel` | `BOOLEAN` | DEFAULT `true` | Illustrative demo flag |
 
 ### 2. `service_records`
-30-day illustrative operational shift archive used for pattern analysis and forecast baselines.
+90-day operational shift archive (158 records) used for pattern analysis, holdout validation, and historical baseline estimation.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | `UUID` | Primary Key | Record identifier |
-| `hotel_id` | `UUID` | Foreign Key $\to$ `hotels(id)` | Associated facility |
-| `service_date` | `DATE` | NOT NULL | Shift date |
-| `service_type` | `TEXT` | NOT NULL | `BREAKFAST`, `LUNCH`, or `DINNER` |
-| `day_of_week` | `TEXT` | NOT NULL | `Monday` through `Sunday` |
-| `is_weekend` | `BOOLEAN`| NOT NULL | `true` for Saturday and Sunday |
-| `expected_customers`| `INTEGER`| NOT NULL | Bookings and registered diners |
-| `actual_customers`| `INTEGER` | NOT NULL | Physical turnstile check-ins |
-| `attendance_ratio` | `NUMERIC(5,4)`| NOT NULL | `actual / expected` conversion |
-| `special_event` | `BOOLEAN`| DEFAULT `false` | Conference or festival flag |
-| `food_prepared` | `NUMERIC(8,2)`| NOT NULL | Total meal equivalents cooked |
-| `food_served` | `NUMERIC(8,2)`| NOT NULL | Total meal equivalents consumed |
-| `food_remaining`| `NUMERIC(8,2)`| NOT NULL | Total food left at end of shift |
-| `food_wasted` | `NUMERIC(8,2)`| NOT NULL | Only non-recoverable portion |
+| `id` | `TEXT` | Primary Key | Record identifier (`DGH-REC-001` to `DGH-REC-158`) |
+| `hotel_id` | `TEXT` | NOT NULL | Linked facility (`DGH-HYD-01`) |
+| `service_date` | `DATE` | NOT NULL | Calendar date of service |
+| `day_of_week` | `TEXT` | NOT NULL | `Monday`, `Tuesday`, etc. |
+| `is_weekend` | `BOOLEAN` | NOT NULL | Flag for Saturday / Sunday |
+| `meal_type` | `TEXT` | NOT NULL | `Breakfast`, `Lunch`, `Dinner` |
+| `service_type` | `TEXT` | NOT NULL | `BREAKFAST`, `LUNCH`, `DINNER` |
+| `context` | `TEXT` | NOT NULL | `Standard`, `Exam Week`, `Heavy Rain`, `Weekend / Event` |
+| `special_event` | `BOOLEAN` | NOT NULL | Event flag |
+| `event_name` | `TEXT` | NULLABLE | Name of conclave, wedding, or festival |
+| `expected_customers`| `INTEGER` | NOT NULL | Registrations or expected footfall |
+| `actual_customers` | `INTEGER` | NOT NULL | Actual turnstile check-ins |
+| `attendance_ratio` | `NUMERIC(5,4)` | NOT NULL | `actual / expected` conversion |
+| `food_prepared_kg` | `NUMERIC(6,2)` | NOT NULL | Total food mass prepared |
+| `food_served_kg` | `NUMERIC(6,2)` | NOT NULL | Total food consumed |
+| `food_remaining_kg`| `NUMERIC(6,2)` | NOT NULL | Net residual food |
+| `food_wasted_kg` | `NUMERIC(6,2)` | NOT NULL | Unrecoverable plate waste |
 
 ### 3. `food_items`
-Culinary catalogue with empirical per-diner consumption rates.
+Standard institutional Indian meal preparation catalog.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | `UUID` | Primary Key | Item identifier |
-| `item_name` | `TEXT` | NOT NULL | e.g., `Steamed Sona Masoori Rice` |
-| `category` | `TEXT` | NOT NULL | `Staple`, `Dal & Gravy`, `Curry / Protein`, `Dairy` |
-| `unit` | `TEXT` | NOT NULL | Physical culinary unit (`kg`, `L`, `pieces`) |
-| `historical_consumption_per_diner` | `NUMERIC(6,4)` | NOT NULL | e.g. `0.0526 kg/diner` |
-| `default_initial_batch_ratio` | `NUMERIC(4,2)` | NOT NULL | Staged batch ratio (`0.84` / 84%) |
+| `id` | `TEXT` | Primary Key | Item slug (`prep-rice`, `prep-dal`, etc.) |
+| `name` | `TEXT` | NOT NULL | e.g., `Steamed Sona Masoori Rice` |
+| `category` | `TEXT` | NOT NULL | `Staple`, `Dal & Gravy`, `Curry / Protein`, `Dairy`, `Breads` |
+| `service_shift` | `TEXT` | NOT NULL | `BREAKFAST`, `LUNCH`, `DINNER`, or `ALL` |
+| `unit` | `TEXT` | NOT NULL | Culinary unit (`kg`, `L`, `pieces`) |
+| `rate_per_diner` | `NUMERIC(6,4)` | NOT NULL | e.g., `0.0526` kg/diner |
+| `rate_source` | `TEXT` | NOT NULL | Learned historical rate vs configured institutional standard |
+| `default_buffer_pct`| `NUMERIC(4,2)`| NOT NULL | Item-specific safety buffer (e.g. 3.0% to 5.0%) |
+| `decimals` | `INTEGER` | NOT NULL | Operational rounding (0 for pieces, 1 for kg/L) |
+| `trigger_advice` | `TEXT` | NOT NULL | Staged batch guidance (e.g. when to cook 15% reserve) |
 
 ### 4. `forecasts`
-Immutable snapshot of deterministic demand predictions.
+Stored output of the deterministic forecast engine.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | `UUID` | Primary Key | Forecast snapshot identifier |
-| `comparable_baseline` | `INTEGER` | NOT NULL | Historical comparable average ($710$) |
-| `day_of_week_effect_pct` | `NUMERIC(5,2)` | NOT NULL | Specific day empirical delta ($+4.8\%$) |
-| `weekend_effect_pct` | `NUMERIC(5,2)` | NOT NULL | Weekend multiplier ($+1.3\%$) |
-| `recent_trend_pct` | `NUMERIC(5,2)` | NOT NULL | Week-over-week momentum ($+2.1\%$) |
-| `unconstrained_prediction`| `INTEGER` | NOT NULL | Raw calculated head count ($795$) |
-| `capacity_limit` | `INTEGER` | NOT NULL | Physical hotel bound ($1000$) |
-| `is_capacity_constrained` | `BOOLEAN` | NOT NULL | Flag if capped at facility limit |
-| `final_predicted_diners` | `INTEGER` | NOT NULL | Final bounded prediction |
-| `gemini_explanation` | `TEXT` | NULLABLE | Qualitative manager staging narrative |
+| `id` | `UUID` | Primary Key, `gen_random_uuid()` | Forecast instance identifier |
+| `hotel_id` | `TEXT` | NOT NULL | Facility code |
+| `service_date` | `DATE` | NOT NULL | Date forecast was generated for |
+| `service_meal` | `TEXT` | NOT NULL | Shift meal |
+| `expected_diners` | `INTEGER` | NOT NULL | Input registrations |
+| `predicted_diners` | `INTEGER` | NOT NULL | Output deterministic demand |
+| `comparable_baseline`| `INTEGER`| NOT NULL | Historical average of same shift |
+| `day_effect_pct` | `NUMERIC(4,2)` | NOT NULL | Empirical day-of-week multiplier |
+| `trend_effect_pct` | `NUMERIC(4,2)` | NOT NULL | Rolling trend multiplier |
+| `event_effect_pct` | `NUMERIC(4,2)` | NOT NULL | Calibrated event multiplier |
+| `recommended_prep` | `INTEGER` | NOT NULL | Total portion equivalents including buffer |
+| `is_capacity_capped`| `BOOLEAN` | NOT NULL | Whether result was clamped to 1000 meals |
+| `engine_version` | `TEXT` | NOT NULL | Version tag (`v3.0-indian-statistical-baseline`) |
 
-### 5. `preparation_recommendations`
-Physical batch-staged cooking plans for each dish item.
+### 5. `recovery_organizations`
+Seeded demo recovery partners across Hyderabad.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `forecast_id` | `UUID` | Foreign Key $\to$ `forecasts(id)` | Parent forecast |
-| `dish_name` | `TEXT` | NOT NULL | Recipe title |
-| `unit` | `TEXT` | NOT NULL | `kg`, `L`, `pieces` |
-| `base_requirement` | `NUMERIC(8,2)` | NOT NULL | $Predicted \times Rate$ |
-| `safety_buffer` | `NUMERIC(8,2)` | NOT NULL | Controlled buffer ($+3.0\%$) |
-| `recommended_quantity` | `NUMERIC(8,2)` | NOT NULL | Base + Buffer |
-| `initial_batch` | `NUMERIC(8,2)` | NOT NULL | Stage 1 line open target ($84\%$) |
-| `reserve_batch` | `NUMERIC(8,2)` | NOT NULL | Stage 2 finishing reserve ($16\%$) |
-| `trigger_condition` | `TEXT` | NOT NULL | Operational release rule |
+| `id` | `TEXT` | Primary Key | e.g. `org-hyd-01` to `org-hyd-07` |
+| `name` | `TEXT` | NOT NULL | e.g. `Robin Hood Army — Gachibowli Chapter` |
+| `locality` | `TEXT` | NOT NULL | `Gachibowli`, `Madhapur`, `Mehdipatnam`, `Ameerpet`, `Kukatpally`, `Secunderabad` |
+| `source_type` | `TEXT` | NOT NULL | `Seeded Demo Partner` |
+| `latitude` | `DOUBLE PRECISION`| NOT NULL | e.g. `17.4410` |
+| `longitude` | `DOUBLE PRECISION`| NOT NULL | e.g. `78.3610` |
+| `daily_capacity` | `INTEGER` | NOT NULL | Max daily portions accepted |
+| `available_capacity`| `INTEGER` | NOT NULL | Unallocated capacity today |
+| `accepted_food_types`| `TEXT[]` | NOT NULL | Array of accepted food profiles |
+| `contact_person` | `TEXT` | NOT NULL | Lead coordinator |
+| `phone` | `TEXT` | NOT NULL | Contact telephone |
+| `operating_hours` | `TEXT` | NOT NULL | Daily operating hours |
 
-### 6. `food_consumption`
-Service audit capturing actual consumption and surplus vs. waste split.
+### 6. `surplus_listings`
+Surplus meal batches staged for rescue transfer.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `actual_diners` | `INTEGER` | NOT NULL | Physical turnstile count |
-| `prediction_error` | `INTEGER` | NOT NULL | $Actual - Predicted$ |
-| `total_prepared` | `NUMERIC(8,2)` | NOT NULL | Cooked volume |
-| `total_served` | `NUMERIC(8,2)` | NOT NULL | Consumed volume |
-| `total_remaining` | `NUMERIC(8,2)` | NOT NULL | Unserved food |
-| `recoverable_surplus` | `NUMERIC(8,2)` | NOT NULL | Verified safe for donation |
-| `non_recoverable_waste` | `NUMERIC(8,2)` | NOT NULL | Plate scrapings / compromised food |
+| `id` | `TEXT` | Primary Key | e.g. `SUR-HYD-2026-042` |
+| `title` | `TEXT` | NOT NULL | Descriptive batch summary |
+| `servings` | `INTEGER` | NOT NULL | Estimated portion count |
+| `quantity_kg` | `NUMERIC(5,2)` | NOT NULL | Measured net weight in kg |
+| `temp_condition` | `TEXT` | NOT NULL | e.g. `Hot Held (≥63°C)` |
+| `pickup_deadline` | `TEXT` | NOT NULL | Safe window expiration |
+| `status` | `TEXT` | NOT NULL | `listed`, `organization_viewed`, `accepted`, `pickup_scheduled`, `collected` |
+| `assigned_org` | `TEXT` | NULLABLE | Assigned demo recovery partner |
 
-### 7. `recovery_organizations`
-Directory of verified community rescue partners in the Hyderabad corridor.
+### 7. `pickups`
+Scheduled logistics and delivery verification.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `id` | `UUID` | Primary Key | Organization identifier |
-| `org_name` | `TEXT` | NOT NULL | Partner shelter name |
-| `latitude` / `longitude` | `DOUBLE PRECISION`| NOT NULL | Geodesic coordinates |
-| `distance_km` | `NUMERIC(5,2)` | NOT NULL | Calculated Haversine distance |
-| `intake_capacity_meals` | `INTEGER` | NOT NULL | Daily intake quota |
-| `source_type` | `TEXT` | NOT NULL | `DEMO_SEED` (Displayed: "Seeded Demo Partner") |
+| `id` | `TEXT` | Primary Key | Unique dispatch identifier |
+| `surplus_id` | `TEXT` | References `surplus_listings(id)` | Linked surplus batch |
+| `org_id` | `TEXT` | References `recovery_organizations(id)` | Assigned partner |
+| `scheduled_time` | `TIMESTAMP WITH TIME ZONE` | NOT NULL | Scheduled pickup time |
+| `status` | `TEXT` | NOT NULL | `SCHEDULED`, `DISPATCHED`, `COMPLETED` |
+| `verification_otp` | `TEXT` | NOT NULL | 4-digit driver handoff PIN |
 
-### 8. `surplus` & 9. `pickups`
-Manages the donation lifecycle from listing through OTP-verified handoff.
-- Status progression: `ACTIVE` $\to$ `VIEWED` $\to$ `ACCEPTED` $\to$ `PICKUP_SCHEDULED` $\to$ `COMPLETED`.
+---
+
+## 3. Data Integrity & Internal Consistency Rules
+1. **Physical Feasibility**: In all records, `food_served` $\le$ `food_prepared`.
+2. **Deterministic Reproducibility**: Given identical hotel ID, expected diners, service type, and day of week, the forecast function always returns the exact same prediction.
+3. **Hard Capacity Bounding**: Predictions never exceed the hotel's `service_capacity` (1,000 meals).
+4. **Coordinate Safety**: Distance calculations verify latitude ($-90 \le \text{lat} \le 90$) and longitude ($-180 \le \text{lon} \le 180$) prior to computing geodesic trigonometry.

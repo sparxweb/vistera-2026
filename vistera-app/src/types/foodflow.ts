@@ -258,3 +258,25 @@ export interface PickupRecord {
   completedAt?: string;
 }
 
+export interface ForecastValidationMetrics {
+  totalRecordsEvaluated: number;
+  trainRecordCount: number;
+  holdoutRecordCount: number;
+  evaluationWindow: string;
+  modelMAE: number; // Mean Absolute Error in diner count (e.g. 14.2 diners)
+  baselineMAE: number; // Naive comparable baseline MAE (e.g. 29.8 diners)
+  modelMAPE: number; // Mean Absolute Percentage Error (e.g. 1.84%)
+  baselineMAPE: number; // Baseline MAPE (e.g. 3.92%)
+  improvementPct: number; // Percentage improvement over naive baseline (e.g. 52.3%)
+  holdoutComparison: {
+    serviceDate: string;
+    meal: ServiceType;
+    actualDiners: number;
+    predictedDiners: number;
+    baselineDiners: number;
+    modelError: number;
+    baselineError: number;
+  }[];
+  explanation: string;
+}
+

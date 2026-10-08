@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { RecoveryOrganization } from '@/types/foodflow';
 import { DEMO_ORGANIZATIONS, DEMO_HOTEL } from '@/lib/demoData';
-import { RecoveryMapbox } from '@/components/recovery/RecoveryMapbox';
+import { RecoveryLeafletMap } from '@/components/recovery/RecoveryLeafletMap';
 import { Modal } from '@/components/ui/Modal';
 import { ScreenId } from '@/components/layout/Header';
 
@@ -145,8 +145,8 @@ export function OrganizationsScreen({
         </div>
       </div>
 
-      {/* INTERACTIVE MAPBOX GL JS MAP WITH HYDERABAD COORDINATES */}
-      <RecoveryMapbox
+      {/* INTERACTIVE LEAFLET + OPENSTREETMAP HYDERABAD RECOVERY GRID */}
+      <RecoveryLeafletMap
         organizations={filteredOrgs}
         selectedOrgId={selectedOrg.id}
         onSelectOrg={(org) => setSelectedOrg(org)}

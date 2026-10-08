@@ -7,6 +7,7 @@ import { LandingScreen } from '@/components/screens/LandingScreen';
 import { LoginScreen } from '@/components/screens/LoginScreen';
 import { DashboardScreen } from '@/components/screens/DashboardScreen';
 import { ForecastScreen } from '@/components/screens/ForecastScreen';
+import { PreparationScreen } from '@/components/screens/PreparationScreen';
 import { ConsumptionScreen } from '@/components/screens/ConsumptionScreen';
 import { RecoveryScreen } from '@/components/screens/RecoveryScreen';
 import { OrganizationsScreen } from '@/components/screens/OrganizationsScreen';
@@ -70,6 +71,7 @@ export default function Home() {
         'login',
         'dashboard',
         'forecast',
+        'preparation',
         'consumption',
         'analysis',
         'recovery',
@@ -225,6 +227,13 @@ export default function Home() {
           <ForecastScreen
             onForecastGenerated={handleForecastGenerated}
             onNavigate={navigateTo}
+          />
+        )}
+
+        {activeScreen === 'preparation' && (
+          <PreparationScreen
+            onNavigate={navigateTo}
+            predictedDiners={forecast.predictedDemand || 795}
           />
         )}
 
