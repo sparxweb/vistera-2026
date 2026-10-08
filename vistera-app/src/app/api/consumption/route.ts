@@ -17,12 +17,18 @@ export async function POST(request: NextRequest) {
     }
 
     const forecastId = body?.forecastId || null;
+    const dishes = Array.isArray(body?.dishes) ? body.dishes : [];
+    const predictedDiners = body?.predictedDiners ? Number(body.predictedDiners) : undefined;
+    const actualDiners = body?.actualDiners ? Number(body.actualDiners) : servedQuantity;
 
     // 1. Evaluate Balance & Remaining Food
     const balance = evaluateConsumptionBalance({
       preparedQuantity,
       servedQuantity,
       balanceThreshold: 5,
+      dishes,
+      predictedDiners,
+      actualDiners,
     });
 
     // 2. Database Persistence (Supabase PostgreSQL)
@@ -41,7 +47,7 @@ export async function POST(request: NextRequest) {
             prepared_quantity: preparedQuantity,
             served_quantity: servedQuantity,
             remaining_quantity: balance.remainingQuantity,
-            balance_status: balance.balanceStatus,
+            balance_status: balance.balanceStatus === 'SURPLUS RISK' ? 'SURPLUS' : balance.balanceStatus === 'WASTE' ? 'SURPLUS' : balance.balanceStatus,
           })
           .select('id')
           .single();
@@ -66,6 +72,8 @@ export async function POST(request: NextRequest) {
       isBalanced: balance.isBalanced,
       statusLabel: balance.statusLabel,
       recommendedAction: balance.recommendedAction,
+      dishEvaluations: balance.dishEvaluations,
+      wasteAnalysis: balance.wasteAnalysis,
       recordedAt: new Date().toISOString(),
     };
 

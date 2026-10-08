@@ -4,12 +4,14 @@ import React from 'react';
 import { RiskLevel } from '@/types/foodflow';
 
 interface RiskIndicatorProps {
-  level: RiskLevel;
+  level?: RiskLevel;
+  riskLevel?: RiskLevel;
   showBars?: boolean;
   className?: string;
 }
 
-export function RiskIndicator({ level, showBars = true, className = '' }: RiskIndicatorProps) {
+export function RiskIndicator({ level, riskLevel, showBars = true, className = '' }: RiskIndicatorProps) {
+  const activeLevel = level || riskLevel || 'LOW';
   const config = {
     LOW: {
       color: 'text-[#1B4D36]',
@@ -35,7 +37,7 @@ export function RiskIndicator({ level, showBars = true, className = '' }: RiskIn
       label: 'High Risk',
       barColor: 'bg-[#D32F2F]',
     },
-  }[level];
+  }[activeLevel];
 
   return (
     <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full border ${config.bg} ${config.border} ${className}`}>
@@ -47,8 +49,9 @@ export function RiskIndicator({ level, showBars = true, className = '' }: RiskIn
         </div>
       )}
       <span className={`text-xs font-semibold uppercase tracking-wider ${config.color}`}>
-        {level}
+        {activeLevel}
       </span>
     </div>
+
   );
 }

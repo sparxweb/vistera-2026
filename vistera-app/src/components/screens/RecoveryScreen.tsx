@@ -38,12 +38,12 @@ export function RecoveryScreen({
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Form fields for new listing
-  const [newFood, setNewFood] = useState('Herb-Roasted Chicken & Mediterranean Farro');
-  const [newQuantity, setNewQuantity] = useState(surplusQuantity || propListing?.servings || 32);
-  const [newPrepTime] = useState('11:15 AM');
+  const [newFood, setNewFood] = useState('Steamed Sona Masoori Rice & Andhra Chicken Curry');
+  const [newQuantity, setNewQuantity] = useState(surplusQuantity || propListing?.servings || 34);
+  const [newPrepTime] = useState('11:45 AM');
   const [newDeadline, setNewDeadline] = useState('15:30 PM (Within 2h)');
-  const [newLocation, setNewLocation] = useState('Central Dining Hall — Dock 2B, Loading Bay');
-  const [newNotes] = useState('Panned in thermal Cambro food carriers. Temp 68.4°C.');
+  const [newLocation, setNewLocation] = useState('Hostel Dining Hall — Loading Bay Dock 2, Gachibowli, Hyderabad');
+  const [newNotes] = useState('Panned in thermal insulated SS carriers. Temp 67.2°C.');
 
   const stages: { stage: SurplusListingStatus; label: string }[] = [
     { stage: 'listed', label: 'ACTIVE' },
@@ -73,16 +73,23 @@ export function RecoveryScreen({
   const handleCreateListing = (e: React.FormEvent) => {
     e.preventDefault();
     const created: SurplusListing = {
-      id: `SUR-${Date.now().toString().slice(-4)}`,
+      id: `SUR-HYD-${Date.now().toString().slice(-4)}`,
       title: newFood,
       category: 'Cooked Meals',
       servings: Number(newQuantity),
+      quantity: 5.7,
+      unit: 'kg',
+      dishItems: [
+        { dishName: 'Steamed Sona Masoori Rice', quantity: 3.2, unit: 'kg' },
+        { dishName: 'Andhra Chicken Curry', quantity: 2.5, unit: 'kg' },
+        { dishName: 'Tomato Dal / Dal Tadka', quantity: 1.8, unit: 'L' },
+      ],
       temperatureCondition: 'Hot Held (≥63°C)',
       preparedTime: newPrepTime,
       pickupDeadline: newDeadline,
       kitchenLocation: newLocation,
-      dietaryTags: ['Verified Hot-Held', 'Nut-Free'],
-      allergens: ['Wheat / Gluten'],
+      dietaryTags: ['Verified Hot-Held', 'Nut-Free', 'High Protein'],
+      allergens: ['None'],
       notes: newNotes,
       status: 'listed',
       statusHistory: [
@@ -92,7 +99,7 @@ export function RecoveryScreen({
         { stage: 'pickup_scheduled', label: 'PICKUP SCHEDULED', timestamp: 'Pending', completed: false },
         { stage: 'collected', label: 'COLLECTED', timestamp: 'Pending', completed: false },
       ],
-      assignedOrg: 'Feeding Hope Community Center',
+      assignedOrg: 'Robin Hood Army — Gachibowli Chapter',
     };
 
     setListing(created);
@@ -104,13 +111,13 @@ export function RecoveryScreen({
       {/* HEADER: CINEMATIC WASTE-TO-IMPACT */}
       <div className="pb-4 border-b border-[#E5E5DE] space-y-2">
         <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#D97706] bg-[#FEF3C7] px-2.5 py-0.5 rounded border border-[#FDE68A]">
-          SURPLUS ROUTING • STEP 04
+          SURPLUS RESCUE ROUTING • STEP 04
         </span>
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0E382B]">
           &ldquo;Don&apos;t let today&apos;s surplus become tomorrow&apos;s waste.&rdquo;
         </h1>
         <p className="text-sm text-[#5C6658]">
-          Route safe, unserved meal pans to verified local rescue organizations within temperature safety windows.
+          Route unserved, high-grade hostel meal pans to nearby community partners across Hyderabad within safety windows.
         </p>
       </div>
 
@@ -121,11 +128,14 @@ export function RecoveryScreen({
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#10B981] animate-pulse" />
               <span className="text-xs font-mono font-bold text-[#0E382B] uppercase tracking-wider">
-                READY FOR RESCUE
+                READY FOR RESCUE TRANSFER (HYDERABAD)
               </span>
             </div>
-            <div className="text-4xl sm:text-5xl font-extrabold text-[#0E382B] mt-1">
-              {listing.servings || surplusQuantity || 32} servings available
+            <div className="text-3xl sm:text-4xl font-extrabold text-[#0E382B] mt-1">
+              {listing.servings || surplusQuantity || 34} portion equivalents available
+            </div>
+            <div className="text-xs text-[#5C6658] mt-1">
+              Manifest: <strong>3.2 kg Rice + 2.5 kg Chicken Curry + 1.8 L Dal</strong>
             </div>
           </div>
 
@@ -145,7 +155,7 @@ export function RecoveryScreen({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
           <div className="p-4 rounded-xl bg-[#FBFBF9] border border-[#E5E5DE]">
             <span className="text-[10px] uppercase font-bold text-[#7D8878] block mb-1">
-              Food Details
+              Food Items & Quantities
             </span>
             <div className="font-bold text-[#0E382B] text-sm">
               {listing.title}
@@ -177,7 +187,7 @@ export function RecoveryScreen({
               {listing.pickupDeadline}
             </div>
             <span className="text-[11px] text-[#B45309] mt-0.5 block">
-              Safe window (≤ 2 hours)
+              Safe window (≤ 2 hours FSSAI)
             </span>
           </div>
 
@@ -190,28 +200,28 @@ export function RecoveryScreen({
               {listing.temperatureCondition}
             </div>
             <span className="text-[11px] text-[#5C6658] mt-0.5 block">
-              Cambro thermal food carriers
+              Insulated thermal carriers
             </span>
           </div>
 
           <div className="p-4 rounded-xl bg-[#FBFBF9] border border-[#E5E5DE] sm:col-span-2">
             <span className="text-[10px] uppercase font-bold text-[#7D8878] block mb-1">
-              Location
+              Dispatch Location
             </span>
             <div className="font-bold text-[#0E382B] text-sm flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 text-[#0E382B]" />
               {listing.kitchenLocation}
             </div>
             <span className="text-[11px] text-[#5C6658] mt-0.5 block">
-              Direct loading bay dock access for transport vans
+              Loading bay dock access for transport vans
             </span>
           </div>
         </div>
 
-        {/* PRIMARY CTA: ONE Main Action Button */}
+        {/* PRIMARY CTA: OPEN MAP */}
         <div className="pt-4 border-t border-[#E5E5DE] flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-xs text-[#5C6658]">
-            4 verified recovery partners active within 5 km radius.
+            4 demo rescue partners active within 5 km in Gachibowli & Madhapur.
           </div>
 
           <button
@@ -219,21 +229,22 @@ export function RecoveryScreen({
             onClick={() => onNavigate('organizations')}
             className="w-full sm:w-auto px-8 py-3.5 bg-[#0E382B] hover:bg-[#164E3D] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>Find Recovery Partner</span>
+            <span>Open Real Recovery Map</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* RECOVERY TIMELINE (Clean Horizontal Progress Timeline) */}
+      {/* RECOVERY TIMELINE */}
       <div className="bg-white rounded-3xl border border-[#E5E5DE] p-6 sm:p-8 shadow-sm space-y-6">
         <div className="flex items-center justify-between pb-3 border-b border-[#E5E5DE]">
           <div>
             <h3 className="text-sm font-bold text-[#0E382B] uppercase tracking-wider">
-              RECOVERY TIMELINE
+              RESCUE DISPATCH TIMELINE
             </h3>
             <span className="text-xs text-[#5C6658]">
               Current status: <strong className="text-[#0E382B]">{stages[currentStageIndex].label}</strong>
+              {listing.assignedOrg && ` • Assigned: ${listing.assignedOrg}`}
             </span>
           </div>
 
@@ -250,7 +261,6 @@ export function RecoveryScreen({
 
         {/* Horizontal Stepper Progress */}
         <div className="relative py-2">
-          {/* Connector Line */}
           <div className="hidden sm:block absolute top-1/2 left-4 right-4 h-0.5 bg-[#E5E5DE] -translate-y-1/2 z-0" />
 
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 relative z-10">
@@ -292,12 +302,12 @@ export function RecoveryScreen({
       <Modal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        title="Create New Surplus Listing"
+        title="Create New Surplus Rescue Listing"
       >
         <form onSubmit={handleCreateListing} className="space-y-4 text-xs">
           <div>
             <label className="block text-[#7D8878] font-medium mb-1">
-              Food Name & Recipe
+              Food Items & Recipe
             </label>
             <input
               type="text"
@@ -311,7 +321,7 @@ export function RecoveryScreen({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[#7D8878] font-medium mb-1">
-                Servings Available
+                Portion Equivalents
               </label>
               <input
                 type="number"
@@ -324,7 +334,7 @@ export function RecoveryScreen({
             </div>
             <div>
               <label className="block text-[#7D8878] font-medium mb-1">
-                Pickup Deadline
+                Safe Pickup Deadline
               </label>
               <input
                 type="text"
@@ -338,7 +348,7 @@ export function RecoveryScreen({
 
           <div>
             <label className="block text-[#7D8878] font-medium mb-1">
-              Kitchen Bay Location
+              Dispatch Dock Location
             </label>
             <input
               type="text"

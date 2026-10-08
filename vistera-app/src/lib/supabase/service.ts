@@ -91,6 +91,7 @@ export async function loadInitialState(): Promise<PersistentState> {
         isConnected = true;
         activeForecast = {
           expectedDiners: dbForecast.expected_diners,
+          predictedDiners: dbForecast.predicted_demand,
           historicalAverage: 756,
           predictedDemand: dbForecast.predicted_demand,
           recommendedPreparation: dbForecast.recommended_preparation,
@@ -99,6 +100,7 @@ export async function loadInitialState(): Promise<PersistentState> {
           riskLevel: dbForecast.operational_risk || 'MEDIUM',
           engineVersion: 'v2.4-deterministic-engine',
           calculatedAt: new Date(dbForecast.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          dishes: localForecast?.dishes || [],
           factors: {
             historicalPattern: `${dbForecast.service_meal || 'Lunch'} historical baseline: 756 meals`,
             attendanceTrend: 'Persisted shift record from Supabase',
@@ -164,14 +166,19 @@ export async function loadInitialState(): Promise<PersistentState> {
         const mappedOrgs: RecoveryOrganization[] = (orgsData as unknown as DatabaseRecoveryOrgRow[]).map((d) => ({
           id: d.id,
           name: d.org_name,
+          organizationType: 'NGO Food Relief',
           verified: d.verified_status,
           verifiedBadgeText: d.verified_status ? 'Verified Partner (Demo)' : 'Pending Verification',
           distanceKm: Number(d.distance_km),
           etaMinutes: Math.round(Number(d.distance_km) * 5),
           address: `${d.distance_km} km radial zone`,
+          city: 'Hyderabad',
           acceptedFoodTypes: d.accepted_food_types || ['Cooked Hot Meals'],
           dailyIntakeCapacity: d.max_capacity_meals,
           currentAvailableCapacity: Math.round(d.max_capacity_meals * 0.4),
+          foodCategoryNeeded: 'Cooked Hot Meals',
+          status: 'Accepting',
+          sourceType: 'Seeded Demo Partner',
           contactPerson: 'Operations Coordinator',
           phone: d.contact_phone || '+91 98100 00000',
           openHours: d.availability || 'Immediate',

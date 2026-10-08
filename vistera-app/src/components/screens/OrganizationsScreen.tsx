@@ -3,14 +3,13 @@
 import React, { useState } from 'react';
 import { 
   MapPin, 
-  ShieldCheck, 
   CheckCircle2, 
   ArrowRight,
   Phone
 } from 'lucide-react';
 import { RecoveryOrganization } from '@/types/foodflow';
 import { DEMO_ORGANIZATIONS } from '@/lib/demoData';
-import { MapPanel } from '@/components/ui/MapPanel';
+import { RecoveryMapbox } from '@/components/recovery/RecoveryMapbox';
 import { Modal } from '@/components/ui/Modal';
 import { ScreenId } from '@/components/layout/Header';
 
@@ -63,14 +62,14 @@ export function OrganizationsScreen({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#0E382B] bg-[#E8EFEA] px-2.5 py-0.5 rounded border border-[#C5DACD]">
-              RECOVERY PARTNERS • STEP 05
+              RECOVERY MAP • STEP 05
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0E382B]">
-            Verified Recovery Partners
+            Food Recovery Map — Hyderabad
           </h1>
           <p className="text-xs sm:text-sm text-[#5C6658] mt-0.5">
-            Select a verified local community kitchen or pantry to schedule immediate surplus pickup.
+            Geodesic proximity routing for College Hostel Canteen to nearby community rescue centers across Gachibowli, Madhapur & Kondapur.
           </p>
         </div>
 
@@ -79,8 +78,8 @@ export function OrganizationsScreen({
           {[
             { id: 'all', label: 'All Partners' },
             { id: 'cooked', label: 'Cooked Meals' },
-            { id: 'bakery', label: 'Bakery' },
-            { id: 'produce', label: 'Produce' },
+            { id: 'rice', label: 'Rice & Dal' },
+            { id: 'veg', label: 'Vegetarian' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -98,132 +97,98 @@ export function OrganizationsScreen({
         </div>
       </div>
 
-      {/* 2-COLUMN LAYOUT: Left Organization List / Right Live Map */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Side: Clean Organization List (5 Cols) */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-bold text-[#0E382B] uppercase tracking-wider">
-              {filteredOrgs.length} Verified Partners Nearby
-            </span>
-            <span className="text-[10px] font-mono text-[#7D8878]">
-              RADIUS: &lt; 5.0 KM
-            </span>
-          </div>
+      {/* INTERACTIVE MAPBOX GL JS MAP WITH HYDERABAD COORDINATES */}
+      <RecoveryMapbox
+        organizations={filteredOrgs}
+        selectedOrgId={selectedOrg.id}
+        onSelectOrg={(org) => setSelectedOrg(org)}
+        onSchedulePickup={(org) => handleSelectForDispatch(org)}
+        kitchenLat={17.4447}
+        kitchenLng={78.3483}
+        kitchenName="College Hostel Dining Hall (Gachibowli, Hyderabad)"
+      />
 
-          <div className="space-y-3 max-h-[640px] overflow-y-auto pr-1">
-            {filteredOrgs.map((org) => {
-              const isSelected = selectedOrg.id === org.id;
-
-              return (
-                <div
-                  key={org.id}
-                  onClick={() => setSelectedOrg(org)}
-                  className={`cursor-pointer rounded-2xl p-5 border transition-all duration-150 relative space-y-3 ${
-                    isSelected
-                      ? 'bg-white border-[#0E382B] shadow-[0_4px_20px_rgba(14,56,43,0.08)] ring-1 ring-[#0E382B]'
-                      : 'bg-[#FBFBF9] border-[#E5E5DE] hover:bg-white hover:border-[#C5DACD]'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="text-sm font-bold text-[#0E382B]">
-                        {org.name}
-                      </h4>
-                      <p className="text-[11px] text-[#5C6658] flex items-center gap-1 mt-0.5">
-                        <MapPin className="w-3 h-3 text-[#0E382B] shrink-0" />
-                        <span>{org.address}</span>
-                      </p>
-                    </div>
-
-                    <span className="text-xs font-mono font-bold text-[#0E382B] bg-[#E8EFEA] px-2.5 py-0.5 rounded border border-[#C5DACD] shrink-0">
-                      {org.distanceKm} km
-                    </span>
-                  </div>
-
-                  {/* Badges: Capacity & Food Type */}
-                  <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                    <span className="bg-white text-[#0E382B] font-semibold px-2 py-0.5 rounded border border-[#E5E5DE]">
-                      Capacity: {org.currentAvailableCapacity} servings
-                    </span>
-                    {org.acceptedFoodTypes.map((t, idx) => (
-                      <span key={idx} className="bg-white text-[#5C6658] px-2 py-0.5 rounded border border-[#E5E5DE]">
-                        {t}
-                      </span>
-                    ))}
-                    <span className="text-[#10B981] font-semibold text-[10px] flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3" />
-                      Verified
-                    </span>
-                  </div>
-
-                  {/* Primary Action Button: ONE Primary Action */}
-                  <div className="pt-2 border-t border-[#E5E5DE] flex items-center justify-between">
-                    <span className="text-[11px] text-[#7D8878]">
-                      ETA: ~{org.etaMinutes} mins
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelectForDispatch(org);
-                      }}
-                      className="px-4 py-2 bg-[#0E382B] hover:bg-[#164E3D] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span>Accept & Schedule Pickup</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      {/* PARTNER DIRECTORY CARDS */}
+      <div className="space-y-4 pt-4">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-bold text-[#0E382B] uppercase tracking-wider">
+            {filteredOrgs.length} Demo Recovery Partners in Hyderabad Corridor
+          </span>
+          <span className="text-[10px] font-mono text-[#7D8878]">
+            HAVERSINE DISTANCE • GACHIBOWLI CENTER
+          </span>
         </div>
 
-        {/* Right Side: Live Map + Partner Details (7 Cols) */}
-        <div className="lg:col-span-7 space-y-4">
-          <MapPanel
-            organizations={organizations}
-            selectedOrgId={selectedOrg.id}
-            onSelectOrg={(org) => setSelectedOrg(org)}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredOrgs.map((org) => {
+            const isSelected = selectedOrg.id === org.id;
 
-          {/* Selected Organization Detail Card */}
-          <div className="bg-white rounded-2xl border border-[#E5E5DE] p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E5E5DE]">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#0E382B]" />
-                <h3 className="text-xs font-bold text-[#0E382B] uppercase tracking-wider">
-                  Partner Verification & Contact
-                </h3>
-              </div>
-              <span className="text-[10px] font-mono text-[#0E382B] bg-[#E8EFEA] px-2 py-0.5 rounded font-semibold">
-                COMMUNITY VERIFIED
-              </span>
-            </div>
+            return (
+              <div
+                key={org.id}
+                onClick={() => setSelectedOrg(org)}
+                className={`cursor-pointer rounded-2xl p-5 border transition-all duration-150 space-y-3 ${
+                  isSelected
+                    ? 'bg-white border-[#0E382B] shadow-md ring-1 ring-[#0E382B]'
+                    : 'bg-[#FBFBF9] border-[#E5E5DE] hover:bg-white hover:border-[#C5DACD]'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-[10px] font-mono font-bold text-[#10B981] bg-[#E8EFEA] px-2 py-0.5 rounded border border-[#C5DACD]">
+                        {org.sourceType}
+                      </span>
+                      <span className="text-[10px] font-bold text-[#D97706] bg-[#FEF3C7] px-2 py-0.5 rounded border border-[#FDE68A]">
+                        {org.status}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-bold text-[#0E382B]">
+                      {org.name}
+                    </h4>
+                    <p className="text-[11px] text-[#5C6658] flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3 h-3 text-[#0E382B] shrink-0" />
+                      <span>{org.address}</span>
+                    </p>
+                  </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              <div className="p-3 rounded-xl bg-[#FBFBF9] border border-[#E5E5DE]">
-                <span className="text-[10px] text-[#7D8878] uppercase block">Coordinator</span>
-                <span className="font-bold text-[#0E382B] block">{selectedOrg.contactPerson}</span>
-                <span className="text-[11px] text-[#5C6658] flex items-center gap-1 mt-0.5">
-                  <Phone className="w-3 h-3" />
-                  {selectedOrg.phone}
-                </span>
+                  <span className="text-xs font-mono font-bold text-[#0E382B] bg-[#E8EFEA] px-2.5 py-0.5 rounded border border-[#C5DACD] shrink-0">
+                    {org.distanceKm} km
+                  </span>
+                </div>
+
+                {/* Capacity & Needs */}
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                  <span className="bg-white text-[#0E382B] font-semibold px-2 py-0.5 rounded border border-[#E5E5DE]">
+                    Avail. Capacity: {org.currentAvailableCapacity} meals
+                  </span>
+                  <span className="bg-white text-[#5C6658] px-2 py-0.5 rounded border border-[#E5E5DE]">
+                    Need: {org.foodCategoryNeeded}
+                  </span>
+                </div>
+
+                {/* Action button */}
+                <div className="pt-2 border-t border-[#E5E5DE] flex items-center justify-between">
+                  <span className="text-[11px] text-[#7D8878] flex items-center gap-1">
+                    <Phone className="w-3 h-3" />
+                    <span>{org.phone}</span>
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectForDispatch(org);
+                    }}
+                    className="px-4 py-2 bg-[#0E382B] hover:bg-[#164E3D] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>Schedule Pickup</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-              <div className="p-3 rounded-xl bg-[#FBFBF9] border border-[#E5E5DE]">
-                <span className="text-[10px] text-[#7D8878] uppercase block">Receiving Hours</span>
-                <span className="font-bold text-[#0E382B] block">{selectedOrg.openHours}</span>
-                <span className="text-[11px] text-[#5C6658]">Hot-dock available</span>
-              </div>
-              <div className="p-3 rounded-xl bg-[#FEF3C7] border border-[#FDE68A]">
-                <span className="text-[10px] text-[#B45309] uppercase block font-semibold">Dispatch Window</span>
-                <span className="font-bold text-[#D97706] block">~{selectedOrg.etaMinutes} mins pickup</span>
-                <span className="text-[11px] text-[#B45309]">Safe temp window</span>
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
 
@@ -231,7 +196,7 @@ export function OrganizationsScreen({
       <Modal
         isOpen={Boolean(dispatchModalOrg)}
         onClose={() => setDispatchModalOrg(null)}
-        title="Schedule Surplus Pickup"
+        title="Schedule Surplus Rescue Transfer"
       >
         <div className="space-y-4 text-xs text-[#4A5548]">
           <div className="p-4 rounded-xl bg-[#FBFBF9] border border-[#E5E5DE] space-y-2">
@@ -240,19 +205,23 @@ export function OrganizationsScreen({
               <strong className="text-[#0E382B]">{dispatchModalOrg?.name}</strong>
             </div>
             <div className="flex justify-between">
-              <span className="text-[#7D8878]">Surplus Quantity:</span>
-              <strong className="text-[#0E382B]">32 servings (Hot Cambro Insulated)</strong>
+              <span className="text-[#7D8878]">Staged Surplus Food:</span>
+              <strong className="text-[#0E382B]">3.2 kg Rice + 2.5 kg Chicken Curry + 1.8 L Dal</strong>
             </div>
             <div className="flex justify-between">
               <span className="text-[#7D8878]">Transit Distance:</span>
               <strong className="text-[#0E382B]">{dispatchModalOrg?.distanceKm} km (~{dispatchModalOrg?.etaMinutes} mins)</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#7D8878]">Pickup Location:</span>
+              <span className="text-[#0E382B]">Hostel Dining Hall — Loading Bay Dock 2, Gachibowli</span>
             </div>
           </div>
 
           {dispatchConfirmed ? (
             <div className="p-4 rounded-xl bg-[#E8EFEA] text-[#0E382B] border border-[#C5DACD] flex items-center gap-2 font-medium">
               <CheckCircle2 className="w-5 h-5 shrink-0 text-[#10B981]" />
-              <span>Pickup scheduled! Notification dispatched to courier. Redirecting to recovery timeline...</span>
+              <span>Pickup scheduled successfully! Handoff manifest dispatched. Redirecting to recovery timeline...</span>
             </div>
           ) : (
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E5E5DE]">

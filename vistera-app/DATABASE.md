@@ -120,26 +120,36 @@ Surplus pan dispatches generated when `balance_status = 'SURPLUS'`.
 - `pickup_location` (TEXT, NOT NULL)
 
 ### E. `recovery_orgs`
-Verified local NGO partners, community pantries, and shelters.
+Verified local NGO partners, community pantries, and shelters in Hyderabad.
 - `id` (UUID, Primary Key)
 - `org_name` (TEXT, NOT NULL)
 - `contact_phone` (TEXT)
-- `distance_km` (NUMERIC(4,1))
+- `distance_km` (NUMERIC(4,1)) — Computed or cached distance from loading dock
 - `max_capacity_meals` (INTEGER)
 - `verified_status` (BOOLEAN, default `true`)
 - `latitude` (DOUBLE PRECISION)
 - `longitude` (DOUBLE PRECISION)
 - `accepted_food_types` (TEXT[])
+- `source_type` (TEXT, e.g. 'seeded_partner' | 'community')
+
+### F. Additional Indian Operations & Multi-Dish Tables (`20261009000000_foodflow_indian_operations.sql`)
+1. **`menu_items`**: Standard culinary items with base serving units (`kg`, `L`, `pieces`, `portions`), preparation yield, allergens, and spice levels.
+2. **`service_records`**: Empirical shift records logging weather, temperature, humidity, campus events, expected vs actual diners, and service delays.
+3. **`historical_consumption`**: Granular dish-level quantities cooked, eaten, remaining unserved, and food safety temperature flags.
+4. **`preparation_recommendations`**: Granular dish-by-dish recipe plans with Two-Stage Batch cooking splits (Initial Cook 84% + Reserve Staging 16%).
+5. **`pickup_records`**: Tracking scheduled rescue pickups with OTP verification, driver names, vehicle numbers, dispatch timestamps, and status changes.
 
 ---
 
-## 3. Database Migration Location
+## 3. Database Migration Files
 Reproducible SQL migrations are stored in:
-- `supabase/migrations/20261008000000_foodflow_core_schema.sql`
-- `supabase/migrations/20261008000001_seed_demo_data.sql`
+- `supabase/migrations/20261008000000_foodflow_core_schema.sql` (Initial core schema)
+- `supabase/migrations/20261008000001_seed_demo_data.sql` (Initial seed data)
+- `supabase/migrations/20261009000000_foodflow_indian_operations.sql` (Comprehensive Indian Operations schema with 10 tables, real culinary units, Hyderabad kitchen, historical shift logs, and recovery partners)
 
 To apply in Supabase CLI or SQL Editor:
 ```bash
 supabase db push
-# or execute directly in Supabase Dashboard SQL Editor
+# or execute 20261009000000_foodflow_indian_operations.sql directly in Supabase Dashboard SQL Editor
 ```
+

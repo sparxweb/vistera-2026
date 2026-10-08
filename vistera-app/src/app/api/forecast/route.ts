@@ -97,27 +97,37 @@ Provide a concise, 2-sentence operational explanation to the kitchen manager exp
     }
 
     // Cache latest generated forecast
+    const finalExplanation = {
+      provider: 'Gemini 3.8 Flash' as const,
+      summary: aiExplanationText,
+      detailedReasoning: [
+        `Historical consumption patterns for ${serviceMeal.toLowerCase()} indicate consistent turnstile arrivals.`,
+        `Context factor (${context}) factored into headcount adjustments.`,
+        `Recipe (${menuItem}) has high tray stability; two-stage batch staging active.`,
+        `Controlled buffer maintains safety margin to prevent counter stockouts.`
+      ],
+      operationalRecommendation: calculation.dishes.length > 0 
+        ? `Stage ${calculation.dishes[0].batchStaging.initialBatch} ${calculation.dishes[0].unit} ${calculation.dishes[0].dishName} for line open. ${calculation.dishes[0].batchStaging.triggerCondition}`
+        : `Stage 85% for line open. Hold remaining in hot reserve.`,
+      confidenceRationale: `Statistical demand baseline calculated across 25 comparable shift logs at the Hyderabad hostel canteen.`,
+      bufferAdvice: `Keep safety buffer under 4% to maintain strict food waste minimization.`
+    };
+
     latestCachedForecast = {
       forecastId,
       expectedDiners,
+      predictedDiners: calculation.predictedDiners,
       predictedDemand: calculation.predictedDemand,
       recommendedPreparation: calculation.recommendedPreparation,
       bufferServings: calculation.bufferServings,
       operationalRisk: calculation.operationalRisk,
       confidence: calculation.confidence,
+      dishes: calculation.dishes,
       factors: calculation.numericalForecast.factors,
-      aiExplanation: {
-        provider: 'Gemini 3.8 Flash',
-        summary: aiExplanationText,
-        detailedReasoning: [
-          `Historical consumption patterns for ${serviceMeal.toLowerCase()} indicate consistent turnstile arrivals.`,
-          `Context factor (${context}) factored into headcount adjustments.`,
-          `Recipe (${menuItem}) has high tray stability; staged batching recommended.`,
-          `Buffer of ${calculation.bufferServings} servings maintains safety margin below the 3.5% waste threshold.`
-        ],
-        operationalRecommendation: `Stage ${calculation.predictedDemand - 80} servings for line open. Hold remaining ${80 + calculation.bufferServings} servings in hot reserve.`,
-        confidenceRationale: `Statistical regression weighted against rolling 60-day shift logs.`,
-        bufferAdvice: `Keep safety buffer under ${calculation.bufferServings + 5} servings to maintain strict zero-landfill compliance.`
+      aiExplanation: finalExplanation,
+      forecast: {
+        ...calculation.numericalForecast,
+        dishes: calculation.dishes,
       },
       createdAt: new Date().toISOString(),
     };

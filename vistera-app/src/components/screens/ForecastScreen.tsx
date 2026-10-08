@@ -2,13 +2,14 @@
 
 import React, { useState } from 'react';
 import { 
-  Cpu, 
   ArrowRight, 
-  AlertCircle, 
-  Sparkles
+  Sparkles,
+  Info,
+  Utensils
 } from 'lucide-react';
-import { NumericalForecast, LLMExplanation } from '@/types/foodflow';
-import { INITIAL_NUMERICAL_FORECAST, INITIAL_LLM_EXPLANATION } from '@/lib/demoData';
+
+import { NumericalForecast, LLMExplanation, DishPreparationItem } from '@/types/foodflow';
+import { INITIAL_NUMERICAL_FORECAST, INITIAL_LLM_EXPLANATION, DEMO_KITCHEN } from '@/lib/demoData';
 import { RiskIndicator } from '@/components/ui/RiskIndicator';
 import { ScreenId } from '@/components/layout/Header';
 
@@ -23,17 +24,17 @@ interface ForecastScreenProps {
 
 export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScreenProps) {
   // Step 1: Expected Diners
-  const [expectedDiners, setExpectedDiners] = useState<number>(800);
-  const [dinersInputStr, setDinersInputStr] = useState<string>('800');
+  const [expectedDiners, setExpectedDiners] = useState<number>(820);
+  const [dinersInputStr, setDinersInputStr] = useState<string>('820');
 
   // Step 2: Meal
   const [mealType, setMealType] = useState<'Breakfast' | 'Lunch' | 'Dinner'>('Lunch');
 
   // Step 3: Menu
-  const [selectedMenu, setSelectedMenu] = useState('Rice + Dal + Chicken');
+  const [selectedMenu, setSelectedMenu] = useState('Steamed Rice + Dal Tadka + Andhra Chicken + Veg Korma + Curd');
 
   // Step 4: Context
-  const [contextSignal, setContextSignal] = useState<'None' | 'Exam Week' | 'Holiday' | 'Event' | 'Heavy Weather'>('None');
+  const [contextSignal, setContextSignal] = useState<'Standard' | 'Exam Week' | 'Heavy Weather' | 'Weekend / Event'>('Standard');
 
   // State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -69,7 +70,7 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
     setIsGenerating(true);
 
     const savedBufferPct = typeof window !== 'undefined' ? window.localStorage.getItem('foodflow_buffer_pct') : null;
-    const defaultBufferPct = savedBufferPct && !isNaN(Number(savedBufferPct)) ? Number(savedBufferPct) : 2.426;
+    const defaultBufferPct = savedBufferPct && !isNaN(Number(savedBufferPct)) ? Number(savedBufferPct) / 100 : 0.03;
 
     try {
       const res = await fetch('/api/forecast', {
@@ -78,345 +79,313 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
         body: JSON.stringify({
           expectedDiners,
           serviceMeal: mealType,
-          menuItem: selectedMenu,
+          menu: selectedMenu,
           context: contextSignal,
           defaultBufferPct,
         }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          const newForecast: NumericalForecast = {
-            expectedDiners: data.expectedDiners,
-            historicalAverage: 756,
-            predictedDemand: data.predictedDemand,
-            recommendedPreparation: data.recommendedPreparation,
-            bufferServings: data.bufferServings,
-            confidence: data.confidence,
-            riskLevel: data.operationalRisk,
-            engineVersion: 'v2.4-deterministic-engine',
-            calculatedAt: 'Just now',
-            factors: data.factors,
-          };
-          const newExplanation: LLMExplanation = data.aiExplanation;
+      const data = await res.json();
 
-          setForecast(newForecast);
-          setExplanation(newExplanation);
-          setIsGenerating(false);
-          setHasCalculated(true);
-
-          if (onForecastGenerated) {
-            onForecastGenerated(newForecast, newExplanation, selectedMenu);
-          }
-          return;
+      if (data.success && data.forecast) {
+        setForecast(data.forecast);
+        if (data.aiExplanation) {
+          setExplanation(data.aiExplanation);
         }
+        setHasCalculated(true);
+
+        if (onForecastGenerated) {
+          onForecastGenerated(data.forecast, data.aiExplanation, selectedMenu);
+        }
+      } else {
+        setValidationError(data.error || 'Failed to generate forecast.');
       }
-    } catch (apiErr) {
-      console.warn('[ForecastScreen] API call failed, falling back to local forecasting engine:', apiErr);
-    }
-
-    // Fallback calculation if network or API route unavailable
-    setTimeout(() => {
-      let mealFactor = 0.9275;
-      if (mealType === 'Breakfast') mealFactor = 0.65;
-      if (mealType === 'Dinner') mealFactor = 0.85;
-
-      let contextModifier = 0;
-      if (contextSignal === 'Exam Week') contextModifier = -0.06;
-      if (contextSignal === 'Holiday') contextModifier = -0.35;
-      if (contextSignal === 'Event') contextModifier = 0.08;
-      if (contextSignal === 'Heavy Weather') contextModifier = -0.12;
-
-      const calculatedDemand = Math.max(
-        1,
-        Math.round(expectedDiners * (mealFactor + contextModifier))
-      );
-      const buffer = Math.max(1, Math.round(calculatedDemand * 0.02426));
-      const recommendedPrep = calculatedDemand + buffer;
-
-      const newForecast: NumericalForecast = {
-        expectedDiners,
-        historicalAverage: 756,
-        predictedDemand: calculatedDemand,
-        recommendedPreparation: recommendedPrep,
-        bufferServings: buffer,
-        confidence: expectedDiners > 1500 ? 'Low' : 'Medium',
-        riskLevel: Math.abs(calculatedDemand - 756) > 60 ? 'HIGH' : 'MEDIUM',
-        engineVersion: 'v2.4-deterministic-regressor',
-        calculatedAt: 'Just now',
-        factors: {
-          historicalPattern: `${mealType} historical baseline averages 756 meals on similar days`,
-          attendanceTrend: `Context applied: ${contextSignal}`,
-          menuDemandFactor: `${selectedMenu} yields a historical 92-94% consumption rate`,
-          dayOfWeekEffect: `Mid-week attendance stabilization curve applied`,
-        },
-      };
-
-      const newExplanation: LLMExplanation = {
-        provider: 'Gemini 3.8 Flash',
-        summary: `Demand for today's ${mealType.toLowerCase()} service is projected at ${calculatedDemand} servings. Recommended preparation stages a +${buffer} serving buffer to mitigate sudden turnstile surges without creating avoidable surplus.`,
-        detailedReasoning: [
-          `Historical consumption patterns for ${mealType.toLowerCase()} indicate consistent turnstile arrivals.`,
-          `Context factor (${contextSignal}) factored into headcount adjustments.`,
-          `Recipe (${selectedMenu}) has high tray shelf-life; batch staging recommended.`,
-          `Buffer of ${buffer} servings maintains safe non-stockout probability above 98%.`
-        ],
-        operationalRecommendation: `Stage ${calculatedDemand - 80} servings for initial service open. Hold final ${80 + buffer} servings until mid-shift headcount confirms trend.`,
-        confidenceRationale: `Statistical regression weighted against rolling 60-day shift logs.`,
-        bufferAdvice: `Keep safety buffer under ${buffer + 5} servings to maintain waste reduction targets.`
-      };
-
-      setForecast(newForecast);
-      setExplanation(newExplanation);
+    } catch {
+      setValidationError('Network error communicating with forecasting engine.');
+    } finally {
       setIsGenerating(false);
-      setHasCalculated(true);
-
-      if (onForecastGenerated) {
-        onForecastGenerated(newForecast, newExplanation, selectedMenu);
-      }
-    }, 400);
+    }
   };
 
+  const dishesList: DishPreparationItem[] = forecast.dishes || INITIAL_NUMERICAL_FORECAST.dishes || [];
+
   return (
-    <div className="space-y-8 pb-16 max-w-4xl mx-auto">
+    <div className="space-y-8 pb-16 max-w-5xl mx-auto">
       {/* HEADER */}
-      <div className="pb-4 border-b border-[#E5E5DE]">
-        <div className="flex items-center gap-2 mb-1">
+      <div className="pb-4 border-b border-[#E5E5DE] space-y-2">
+        <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#0E382B] bg-[#E8EFEA] px-2.5 py-0.5 rounded border border-[#C5DACD]">
-            GUIDED WORKFLOW • STEP 01
+            DEMAND ESTIMATION • STEP 01
+          </span>
+          <span className="text-[10px] font-mono text-[#5C6658]">
+            FACILITY: {DEMO_KITCHEN.name} ({DEMO_KITCHEN.city})
           </span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0E382B]">
-          FORECAST TODAY&apos;S DEMAND
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#0E382B]">
+          Predict Demand. Prevent Overproduction.
         </h1>
-        <p className="text-xs sm:text-sm text-[#5C6658] mt-0.5">
-          Tell FOODFLOW what today&apos;s service looks like.
+        <p className="text-sm text-[#5C6658]">
+          Deterministic statistical demand modeling for Indian institutional dining. Calculates exact dish quantities in kg, litres, and pieces with two-stage batch cooking recommendations.
         </p>
       </div>
 
-      {/* GUIDED INPUT WORKFLOW */}
-      <div className="bg-white rounded-3xl border border-[#E5E5DE] p-6 sm:p-8 shadow-sm space-y-8">
-        {validationError && (
-          <div className="p-3 rounded-xl bg-[#FEF2F2] border border-[#FCA5A5] text-xs text-[#DC2626] flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{validationError}</span>
+      {/* INPUT CONFIGURATION CARD */}
+      <div className="bg-white rounded-3xl border border-[#E5E5DE] p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Expected Diners Input */}
+          <div className="space-y-1.5 md:col-span-1">
+            <label className="text-xs font-bold text-[#0E382B] uppercase tracking-wider block">
+              Expected Diners
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min={1}
+                max={5000}
+                value={dinersInputStr}
+                onChange={(e) => handleDinersChange(e.target.value)}
+                placeholder="e.g. 820"
+                className={`w-full px-4 py-3 rounded-xl border text-sm font-bold bg-[#FBFBF9] focus:outline-none focus:ring-1 focus:ring-[#0E382B] ${
+                  validationError ? 'border-[#EF4444]' : 'border-[#E5E5DE]'
+                }`}
+              />
+              <span className="absolute right-3 top-3.5 text-xs text-[#7D8878] font-mono">
+                pax
+              </span>
+            </div>
+            {validationError && (
+              <span className="text-[11px] text-[#EF4444] block">
+                {validationError}
+              </span>
+            )}
           </div>
-        )}
 
-        {/* STEP 1: Expected Diners */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#7D8878]">
-              STEP 1 • EXPECTED DINERS
-            </span>
-            <span className="text-xs text-[#5C6658]">Registered count / reservations</span>
+          {/* Meal Type */}
+          <div className="space-y-1.5 md:col-span-1">
+            <label className="text-xs font-bold text-[#0E382B] uppercase tracking-wider block">
+              Meal Service
+            </label>
+            <div className="grid grid-cols-3 gap-1 bg-[#FBFBF9] p-1 rounded-xl border border-[#E5E5DE]">
+              {(['Breakfast', 'Lunch', 'Dinner'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    setMealType(m);
+                    if (m === 'Breakfast') setSelectedMenu('Idli + Vada + Sambar + Coconut Chutney');
+                    else if (m === 'Dinner') setSelectedMenu('Hyderabadi Chicken Biryani + Veg Biryani + Raitha');
+                    else setSelectedMenu('Steamed Rice + Dal Tadka + Andhra Chicken + Veg Korma + Curd');
+                  }}
+                  className={`py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    mealType === m
+                      ? 'bg-[#0E382B] text-white shadow-xs'
+                      : 'text-[#5C6658] hover:text-[#0E382B]'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="relative">
+
+          {/* Scheduled Menu */}
+          <div className="space-y-1.5 md:col-span-1">
+            <label className="text-xs font-bold text-[#0E382B] uppercase tracking-wider block">
+              Menu Template
+            </label>
             <input
-              type="number"
-              aria-label="Expected Diners"
-              value={dinersInputStr}
-              onChange={(e) => handleDinersChange(e.target.value)}
-              className="w-full text-2xl sm:text-3xl font-bold p-4 rounded-2xl border border-[#E5E5DE] bg-[#FBFBF9] text-[#0E382B] focus:border-[#0E382B] focus:bg-white focus:outline-none transition-all"
-              placeholder="e.g. 800"
+              type="text"
+              value={selectedMenu}
+              onChange={(e) => setSelectedMenu(e.target.value)}
+              className="w-full px-3 py-3 rounded-xl border border-[#E5E5DE] text-xs font-medium bg-[#FBFBF9] text-[#0E382B] truncate focus:outline-none"
+              title={selectedMenu}
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-[#7D8878] uppercase">
-              Registered Diners
-            </span>
+          </div>
+
+          {/* Context / Signal */}
+          <div className="space-y-1.5 md:col-span-1">
+            <label className="text-xs font-bold text-[#0E382B] uppercase tracking-wider block">
+              Context Modifier
+            </label>
+            <select
+              value={contextSignal}
+              onChange={(e) => setContextSignal(e.target.value as 'Standard' | 'Exam Week' | 'Heavy Weather' | 'Weekend / Event')}
+              className="w-full px-3 py-3 rounded-xl border border-[#E5E5DE] text-xs font-semibold bg-[#FBFBF9] text-[#0E382B] focus:outline-none cursor-pointer"
+            >
+              <option value="Standard">Standard Academic Day</option>
+              <option value="Exam Week">Exam Week (-8% conversion)</option>
+              <option value="Heavy Weather">Heavy Monsoon (-8% footfall)</option>
+              <option value="Weekend / Event">Weekend / Campus Event</option>
+            </select>
           </div>
         </div>
 
-        {/* STEP 2: Meal (Segmented Controls) */}
-        <div className="space-y-3">
-          <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#7D8878] block">
-            STEP 2 • MEAL
-          </span>
-          <div className="grid grid-cols-3 gap-3">
-            {(['Breakfast', 'Lunch', 'Dinner'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMealType(m)}
-                className={`py-3 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer text-center border ${
-                  mealType === m
-                    ? 'bg-[#0E382B] text-white border-[#0E382B] shadow-sm'
-                    : 'bg-[#FBFBF9] text-[#5C6658] border-[#E5E5DE] hover:bg-white hover:text-[#0E382B]'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
+        {/* PRIMARY RUN BUTTON */}
+        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-[#E5E5DE]">
+          <div className="text-xs text-[#5C6658]">
+            Regression baseline: <strong>25 historical services</strong> • Capacity: 1000 diners
           </div>
-        </div>
 
-        {/* STEP 3: Menu */}
-        <div className="space-y-3">
-          <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#7D8878] block">
-            STEP 3 • MENU
-          </span>
-          <select
-            value={selectedMenu}
-            onChange={(e) => setSelectedMenu(e.target.value)}
-            className="w-full text-xs font-medium p-3.5 rounded-xl border border-[#E5E5DE] bg-[#FBFBF9] text-[#0E382B] focus:border-[#0E382B] focus:bg-white focus:outline-none transition-all cursor-pointer"
-          >
-            <option value="Rice + Dal + Chicken">Rice + Dal + Chicken (Canteen Classic)</option>
-            <option value="Herb-Roasted Chicken & Farro">Herb-Roasted Chicken & Farro Bowl</option>
-            <option value="Lentil Dahl & Basmati Rice">Lentil Dahl & Basmati Rice (Plant-Based)</option>
-            <option value="Beef Bolognese Pasta">Beef Bolognese & Penne Rigate</option>
-            <option value="Harvest Vegetable Curry">Harvest Vegetable Curry with Roti</option>
-          </select>
-        </div>
-
-        {/* STEP 4: Context (Optional) */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#7D8878]">
-              STEP 4 • CONTEXT (OPTIONAL)
-            </span>
-            <span className="text-[10px] text-[#7D8878]">Campus conditions</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {(['None', 'Exam Week', 'Holiday', 'Event', 'Heavy Weather'] as const).map((ctx) => (
-              <button
-                key={ctx}
-                type="button"
-                onClick={() => setContextSignal(ctx)}
-                className={`py-2 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer text-center border ${
-                  contextSignal === ctx
-                    ? 'bg-[#E8EFEA] text-[#0E382B] border-[#0E382B] font-semibold'
-                    : 'bg-[#FBFBF9] text-[#5C6658] border-[#E5E5DE] hover:bg-white'
-                }`}
-              >
-                {ctx}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* PRIMARY CTA: ONE Large Button */}
-        <div className="pt-4 border-t border-[#E5E5DE]">
           <button
             type="button"
             onClick={handleGenerate}
             disabled={isGenerating}
-            className="w-full py-4 bg-[#0E382B] hover:bg-[#164E3D] text-white rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+            className="w-full sm:w-auto px-8 py-3.5 bg-[#0E382B] hover:bg-[#164E3D] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {isGenerating ? (
-              <>
-                <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                <span>Running Forecasting Engine...</span>
-              </>
+              <span>Calculating Demand...</span>
             ) : (
               <>
-                <Cpu className="w-4 h-4" />
-                <span>Generate Forecast</span>
+                <Utensils className="w-4 h-4" />
+                <span>Calculate Preparation Plan</span>
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* FORECAST RESULT (Appears when calculated) */}
+      {/* TODAY'S PREPARATION PLAN RESULT */}
       {hasCalculated && (
-        <div className="bg-white rounded-3xl border border-[#E5E5DE] p-6 sm:p-8 shadow-sm space-y-8 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between pb-4 border-b border-[#E5E5DE]">
-            <div>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#0E382B] bg-[#E8EFEA] px-2 py-0.5 rounded border border-[#C5DACD]">
-                FORECAST ENGINE RESULT
-              </span>
-              <h3 className="text-lg font-bold text-[#0E382B] mt-1">
-                Deterministic Demand Output
-              </h3>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-[#5C6658]">Operational Risk:</span>
-              <RiskIndicator level={forecast.riskLevel} />
-            </div>
-          </div>
-
-          {/* Results Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Box 1: PREDICTED DEMAND */}
-            <div className="p-6 rounded-2xl bg-[#E8EFEA] border border-[#C5DACD] text-center">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#0E382B] block">
-                PREDICTED DEMAND
-              </span>
-              <div className="text-5xl sm:text-6xl font-extrabold text-[#0E382B] my-2">
-                {forecast.predictedDemand}
-              </div>
-              <span className="text-xs font-bold text-[#164E3D]">
-                SERVINGS
-              </span>
-              <p className="text-[11px] text-[#5C6658] mt-1">
-                Calculated by Statistical Forecasting Engine
-              </p>
-            </div>
-
-            {/* Box 2: RECOMMENDED PREPARATION */}
-            <div className="p-6 rounded-2xl bg-[#FEF3C7] border border-[#FDE68A] text-center">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#D97706] block">
-                RECOMMENDED PREPARATION
-              </span>
-              <div className="text-5xl sm:text-6xl font-extrabold text-[#D97706] my-2">
-                {forecast.recommendedPreparation}
-              </div>
-              <span className="text-xs font-bold text-[#B45309]">
-                SERVINGS
-              </span>
-              <p className="text-[11px] text-[#B45309] mt-1">
-                Includes +{forecast.bufferServings} serving safety buffer margin
-              </p>
-            </div>
-          </div>
-
-          {/* WHY? AI EXPLANATION (Visually separated) */}
-          <div className="p-6 rounded-2xl bg-[#FBFBF9] border border-[#E5E5DE] space-y-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#0E382B]" />
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[#0E382B]">
-                WHY? • AI EXPLANATION
-              </h4>
-              <span className="text-[10px] text-[#7D8878] font-mono">
-                (Qualitative Reasoning • {explanation.provider})
-              </span>
-            </div>
-
-            <p className="text-xs sm:text-sm text-[#4A5548] leading-relaxed italic bg-white p-4 rounded-xl border border-[#E5E5DE]">
-              &ldquo;{explanation.summary}&rdquo;
-            </p>
-
-            <div className="space-y-1.5 pt-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7D8878] block">
-                Contributing Factors:
-              </span>
-              {explanation.detailedReasoning.map((item, idx) => (
-                <div key={idx} className="text-xs text-[#5C6658] flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#0E382B] mt-1.5 shrink-0" />
-                  <span>{item}</span>
+        <div className="space-y-6">
+          {/* Top Level Summary Card */}
+          <div className="bg-white rounded-3xl border border-[#E5E5DE] p-6 sm:p-8 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#E5E5DE]">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
+                  <span className="text-xs font-mono font-bold text-[#0E382B] uppercase tracking-wider">
+                    TODAY&apos;S PREPARATION PLAN • {mealType.toUpperCase()}
+                  </span>
                 </div>
-              ))}
+                <div className="text-3xl sm:text-4xl font-extrabold text-[#0E382B]">
+                  {forecast.predictedDiners || forecast.predictedDemand} Predicted Diners
+                </div>
+                <p className="text-xs text-[#5C6658] mt-1">
+                  From {expectedDiners} registered diners based on recent empirical turnout conversion (~96.9%).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <RiskIndicator riskLevel={forecast.riskLevel} />
+              </div>
             </div>
-          </div>
 
-          {/* ACTIONS: ONE Primary CTA + Secondary CTA */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[#E5E5DE]">
-            <button
-              type="button"
-              onClick={() => onNavigate && onNavigate('dashboard')}
-              className="text-xs font-semibold text-[#5C6658] hover:text-[#0E382B] transition-colors order-2 sm:order-1 cursor-pointer"
-            >
-              Save & Exit to Dashboard
-            </button>
+            {/* DISH-LEVEL PREPARATION TABLE (kg, L, pieces) */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-[#0E382B] uppercase tracking-wider">
+                  Recommended Preparation by Dish (Real Quantities)
+                </h3>
+                <span className="text-[10px] font-mono text-[#7D8878]">
+                  SAFETY BUFFER: 3.0%
+                </span>
+              </div>
 
-            <button
-              type="button"
-              onClick={() => onNavigate && onNavigate('consumption')}
-              className="w-full sm:w-auto px-6 py-3.5 bg-[#0E382B] hover:bg-[#164E3D] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 order-1 sm:order-2 cursor-pointer"
-            >
-              <span>Record Consumption</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+              <div className="overflow-x-auto border border-[#E5E5DE] rounded-2xl">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-[#FBFBF9] border-b border-[#E5E5DE] text-[#7D8878] font-mono text-[10px] uppercase">
+                      <th className="py-3 px-4">Dish Name</th>
+                      <th className="py-3 px-3">Category</th>
+                      <th className="py-3 px-3 text-right">Predicted Demand</th>
+                      <th className="py-3 px-3 text-right">Safety Buffer</th>
+                      <th className="py-3 px-3 text-right">Recommended Prep</th>
+                      <th className="py-3 px-4">Two-Stage Batch Staging</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E5E5DE]">
+                    {dishesList.map((d) => (
+                      <tr key={d.id} className="hover:bg-[#FBFBF9]/80 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-[#0E382B]">
+                          {d.dishName}
+                          <span className="block text-[10px] text-[#7D8878] font-normal font-mono">
+                            Rate: {d.consumptionRatePerDiner} {d.unit}/diner
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-3 text-[#5C6658]">
+                          {d.category}
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-mono font-semibold text-[#5C6658]">
+                          {d.predictedDemand} {d.unit}
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-mono text-[#D97706] font-semibold">
+                          +{d.safetyBuffer} {d.unit}
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-mono text-sm font-extrabold text-[#0E382B]">
+                          {d.recommendedPreparation} {d.unit}
+                        </td>
+                        <td className="py-3.5 px-4 text-[11px] text-[#4A5548]">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-semibold text-[#0E382B]">
+                              Stage 1: {d.batchStaging.initialBatch} {d.unit}
+                            </span>
+                            <span className="text-[#7D8878]">|</span>
+                            <span className="text-[#D97706] font-medium">
+                              Reserve: {d.batchStaging.reserveBatch} {d.unit}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-[#7D8878] block line-clamp-1">
+                            {d.batchStaging.triggerCondition}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* EXPLAINABILITY CARD */}
+            <div className="p-5 rounded-2xl bg-[#FBFBF9] border border-[#E5E5DE] space-y-3">
+              <div className="flex items-center gap-2">
+                <Info className="w-4 h-4 text-[#0E382B]" />
+                <h4 className="text-xs font-bold text-[#0E382B] uppercase tracking-wider">
+                  Explainable Calculation Breakdown
+                </h4>
+              </div>
+              <p className="text-xs text-[#5C6658] leading-relaxed">
+                FOODFLOW applies an attendance conversion of <strong>{(forecast.predictedDiners / (expectedDiners || 1) * 100).toFixed(1)}%</strong> ({forecast.predictedDiners} predicted attendees) calibrated from 25 comparable lunch shifts at the Hyderabad Hostel Canteen. Dish preparation targets are calculated as <code>Predicted Diners × Historical Dish Rate + 3% Safety Buffer</code>, with two-stage cooking to prevent cold hot-hold degradation.
+              </p>
+            </div>
+
+            {/* GEMINI OPERATIONAL INSIGHT (DECOUPLED QUALITATIVE COPILOT) */}
+            <div className="p-5 rounded-2xl bg-[#E8EFEA] border border-[#C5DACD] space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#10B981]" />
+                  <span className="text-xs font-bold text-[#0E382B] uppercase tracking-wider">
+                    Kitchen Reasoning Copilot ({explanation.provider})
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-[#10B981] font-semibold">
+                  QUALITATIVE STAGING ADVICE
+                </span>
+              </div>
+              <p className="text-xs text-[#0E382B] leading-relaxed font-medium">
+                {explanation.summary}
+              </p>
+              <div className="text-[11px] text-[#335C49] pt-1">
+                <strong>Staging Directive:</strong> {explanation.operationalRecommendation}
+              </div>
+            </div>
+
+            {/* NEXT WORKFLOW ACTION */}
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-[#E5E5DE]">
+              <span className="text-xs text-[#5C6658]">
+                Preparation targets synced to kitchen prep boards and local database.
+              </span>
+
+              {onNavigate && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate('consumption')}
+                  className="w-full sm:w-auto px-8 py-3.5 bg-[#0E382B] hover:bg-[#164E3D] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Proceed to Monitor Consumption</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

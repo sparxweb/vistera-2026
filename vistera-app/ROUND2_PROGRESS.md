@@ -21,37 +21,51 @@ Rather than building an overwhelming, incomplete admin dashboard with mock value
 ## 2. Completed & Working Features
 
 ### A. Forecasting Engine (`src/lib/forecast/engine.ts`)
-- **Deterministic Numerical Computation:** Strictly decoupled from LLM text generation to prevent hallucinations.
-- **Parametric Inputs:** Expected diners (e.g. 800), meal type (Breakfast, Lunch, Dinner), scheduled recipe (e.g. Rice + Dal + Chicken), and campus context modifiers (Exam Week, Holiday, Event, Heavy Weather).
-- **Mathematical Yield:** Calculates predicted demand ($742$ servings on baseline) and recommended staging ($760$ servings, incorporating a $+18$ serving / $2.426\%$ safety buffer margin).
-- **Risk Assessment:** Classifies operational risk as `LOW`, `MEDIUM`, or `HIGH` based on variance from the rolling historical shift baseline.
+- **Empirical Historical Dataset:** Grounded in 25 authentic service records for Hyderabad institutional dining (`src/lib/data/historicalServices.ts`) across Lunch, Breakfast, and Dinner shifts.
+- **Parametric Inputs:** Expected registered diners (e.g. 820), meal shift (Lunch), scheduled menu, campus context factor (Sunny / Regular, Heavy Rain, Campus Fest).
+- **Mathematical Multi-Dish Yield:** Computes expected attendance ($795$ predicted on 820 expected, $\sim 96.95\%$ historical ratio) and dish-by-dish preparation quantities in real physical culinary units:
+  - Steamed Sona Masoori Rice: **43.0 kg**
+  - Dal Tadka: **18.0 L**
+  - Andhra Chicken Curry: **31.0 kg**
+  - Mixed Veg Korma: **16.5 kg**
+  - Fresh Set Curd: **12.0 L**
+- **Two-Stage Batch Staging:** Splits each dish into Initial Cook (84%) and Reserve Staging (16% cooked only if turnstiles cross 80% at 1:15 PM), preventing kitchen overproduction before it happens.
+- **Risk Assessment:** Dynamic operational risk (`LOW`, `MEDIUM`, `HIGH`) derived from shift variance.
 
 ### B. Forecast API (`POST /api/forecast`)
-- Validates input headcount.
-- Executes deterministic calculations.
-- Prompts Google Gemini (3.8 Flash) asynchronously for contextual reasoning only (e.g., meal-staging suggestions).
+- Validates input headcount and meal type.
+- Executes deterministic calculations and dish conversion.
+- Prompts Google Gemini (3.8 Flash) asynchronously strictly for qualitative operational advice (staged batch timing).
 - Persists record directly into Supabase PostgreSQL table `public.demand_forecasts`.
 - Graceful degradation: If Gemini is offline, deterministic forecasts complete with verified local explanations.
 
-### C. Consumption Balance Engine (`src/lib/business/balance.ts`)
-- **Real-Time Difference Calculation:** $\text{Remaining} = \max(0, \text{Prepared} - \text{Served})$.
+### C. Consumption & Variance Engine (`src/lib/business/balance.ts`)
+- **Dish-Level Consumption Tracking:** Real-time logging of prepared, served, and unserved pan leftovers.
+- **Leftover $\neq$ Waste Principle:** Safely hot-held food ($\ge 63^\circ\text{C}$) is flagged as high-priority recoverable surplus; only non-recoverable food is classified as organic kitchen waste.
 - **Automated State Detection:**
-  - `SURPLUS`: Triggered when remaining servings exceed safety threshold (e.g., $760$ prepared vs $728$ served $\to$ $32$ surplus).
-  - `SHORTAGE`: Triggered when turnstile sales exceed staged preparation (e.g., $700$ prepared vs $728$ served $\to$ $28$ shortage).
-  - `BALANCED`: Triggered when preparation tightly matches attendance within tolerance ($\pm 5$ servings).
+  - `SURPLUS`: Triggered when unserved pan leftovers exist (e.g. 3.2 kg Rice, 2.5 kg Chicken Curry, 1.8 L Dal).
+  - `SHORTAGE`: Triggered when demand exceeds prepared trays.
+  - `BALANCED`: Triggered when preparation matches attendance within tolerance.
+- **Variance Cause Analysis:** Diagnoses causes (e.g. "Low attendance vs expected registration: 795 expected vs 748 actual").
 
 ### D. Consumption API (`POST /api/consumption`)
-- Receives actual headcount counts.
-- Evaluates surplus/shortage balance.
+- Ingests dish arrays and total headcounts.
+- Evaluates surplus/shortage balance and waste analysis.
 - Persists record into Supabase PostgreSQL table `public.daily_consumption`.
-- Flags surplus pans for immediate recovery routing.
+- Triggers active surplus listings for rescue routing.
 
-### E. Database Persistence & Resilience (`src/lib/supabase/service.ts`)
-- Dual-layer storage architecture: Supabase PostgreSQL remote persistence + synchronous local storage fallback.
-- **Refresh Persistence Guarantee:** Creating a forecast and logging consumption remains preserved via client fallback cache across full browser page reloads.
+### E. Interactive Spatial Recovery Corridor (`src/components/recovery/RecoveryMapbox.tsx`)
+- **Mapbox GL JS 3.10 Integration:** Live vector map centered on Hyderabad institutional corridor.
+- **Geodesic Haversine Distance Engine (`src/lib/geo/distance.ts`):** Calculates real spherical distances between kitchen dock and verified local partners:
+  - Robin Hood Army Gachibowli: **2.8 km**
+  - Feeding India Madhapur: **4.6 km**
+  - Annamrita Foundation Kondapur: **3.4 km**
+  - Aasara Welfare Society Tolichowki: **6.2 km**
+- **Interactive Dispatch Flow:** Direct marker click $\to$ card sync $\to$ pickup schedule modal with OTP generation.
+- **Resilient Fallback:** Displays interactive GIS partner cards if Mapbox token is unset or network is offline.
 
 ### F. Kitchen Control Center UI
-- Redesigned with Apple-level simplicity: 1 primary operational card per screen, 1 primary CTA, zero clutter.
+- Redesigned with calm visual hierarchy and high information density without clutter.
 - Responsive design across desktop, tablet, and mobile.
 
 ---
@@ -69,12 +83,12 @@ Rather than building an overwhelming, incomplete admin dashboard with mock value
 [ POST /api/forecast ]         [ POST /api/consumption ]
     │                                   │
     ▼                                   ▼
-[ Deterministic Regressor ]    [ Balance Evaluator ]
-    │ (Numerical Forecast)              │ (Surplus / Shortage)
+[ Empirical Regressor ]         [ Balance & Waste Evaluator ]
+    │ (Dishes in kg, L, pieces)         │ (Leftover != Waste)
     ├─────────────────────┐             │
     ▼                     ▼             ▼
-[ Supabase PostgreSQL ] [ Gemini AI ] [ Supabase PostgreSQL ]
-(demand_forecasts)     (Explanations) (daily_consumption)
+[ Supabase PostgreSQL ] [ Gemini AI ] [ Mapbox GL JS ]
+(demand_forecasts)     (Copilot Only) (Hyderabad Corridor)
 ```
 
 ---
@@ -85,13 +99,16 @@ Rather than building an overwhelming, incomplete admin dashboard with mock value
 | :--- | :--- | :--- | :--- |
 | **Next.js Production Build** | `npm run build` | Turbopack compilation without TS errors | **PASS** |
 | **TypeScript Typecheck** | `npx tsc --noEmit` | Clean zero-error compilation | **PASS** |
-| **Forecast Engine** | 800 diners, Lunch, None | 742 predicted, 760 prep, Medium risk | **PASS** |
-| **Forecast API** | `POST /api/forecast` | Returns JSON with forecastId & metrics | **PASS** |
-| **Consumption Surplus** | 760 prep, 728 served | 32 remaining, status `SURPLUS` | **PASS** |
-| **Consumption Shortage** | 700 prep, 728 served | 0 remaining, status `SHORTAGE` | **PASS** |
-| **Consumption Balanced** | 728 prep, 728 served | 0 remaining, status `BALANCED` | **PASS** |
-| **Consumption API** | `POST /api/consumption` | Returns balanceStatus & remaining | **PASS** |
-| **Page Refresh Persistence** | Reload browser at `#dashboard` | Forecast & consumption remain intact | **PASS** |
+| **Forecast Engine (Diners)** | 820 expected, Lunch, Regular | 795 predicted diners (96.95% ratio) | **PASS** |
+| **Forecast Engine (Dishes)** | 820 expected, Lunch, Regular | 43 kg Rice, 18 L Dal, 31 kg Chicken, etc. | **PASS** |
+| **Two-Stage Batch Staging** | 43 kg Rice total | 36.1 kg Initial Cook + 6.9 kg Reserve | **PASS** |
+| **Forecast API** | `POST /api/forecast` | Returns JSON with dishes & batch plan | **PASS** |
+| **Haversine Distance Engine** | Hyderabad Kitchen to Gachibowli | 2.8 km calculated | **PASS** |
+| **Consumption Surplus** | Rice 43 prep, 39.8 served, 3.2 leftover | Status `SURPLUS`, 3.2 kg Rice surplus | **PASS** |
+| **Leftover != Waste** | Unserved pan food at >= 63°C | Flagged as recoverable surplus, not waste | **PASS** |
+| **Mapbox & Fallback** | Mapbox token unset or offline | Graceful interactive GIS corridor cards | **PASS** |
+| **Page Refresh Persistence** | Reload browser at `#dashboard` | Operational metrics preserved | **PASS** |
+
 
 ---
 
