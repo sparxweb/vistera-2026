@@ -45,9 +45,20 @@ Risk: ${calculation.operationalRisk}
 
 Provide a concise, 2-sentence operational explanation to the kitchen manager explaining the rationale and safe batch staging advice. Do NOT calculate new numbers. Use careful wording ("likely contributing factor", not "confirmed cause").`;
 
-      const aiResponse = await askAI(prompt, 'gemini');
-      if (aiResponse && aiResponse.trim().length > 10) {
-        aiExplanationText = aiResponse.trim();
+      const rawAiResponse = await askAI(prompt, 'gemini');
+      if (rawAiResponse && rawAiResponse.trim().length > 10) {
+        let cleaned = rawAiResponse.trim();
+        // If Gemini returns a thinking block or chain of thought preface, extract the final concise advice
+        if (cleaned.includes("Here's a thinking process") || cleaned.includes("Here's a thinking")) {
+          const parts = cleaned.split(/\n\n(?=[A-Z])/);
+          const finalCandidate = parts[parts.length - 1]?.trim();
+          if (finalCandidate && finalCandidate.length > 20 && !finalCandidate.startsWith('1.') && !finalCandidate.startsWith('-')) {
+            cleaned = finalCandidate;
+          } else {
+            cleaned = `Demand is projected at ${calculation.predictedDemand} servings for ${expectedDiners} diners. The recommended preparation stages a +${calculation.bufferServings} serving safety buffer to balance sudden turnstile arrivals with zero food waste.`;
+          }
+        }
+        aiExplanationText = cleaned;
       }
     } catch (aiErr) {
       console.warn('[FOODFLOW AI] Gemini explanation offline or unavailable, using deterministic rationale:', aiErr);
