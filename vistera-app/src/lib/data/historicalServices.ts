@@ -1,13 +1,15 @@
 // ==============================================================================
-// FOODFLOW: Illustrative Demo Dataset — Indian Institutional Kitchen
-// Facility: College Hostel Dining Hall, Hyderabad (Capacity: 1000)
+// FOODFLOW: Illustrative Demo Hotel Dataset
+// Facility: Deccan Grand Hotel — Hyderabad (Capacity: 1000 meals/service)
 // Problem: VISTERA 2026 PS-44 — Cutting Food Waste
-// Notice: These records represent realistic illustrative operational shift data
-//         modeled for an Indian institutional canteen, used by the deterministic
-//         demand forecast engine for empirical consumption rates & conversion.
+// Notice: These records represent a 30-day illustrative operational dataset
+//         modeled for an Indian hospitality & banqueting kitchen, used by
+//         the deterministic forecast engine and pattern analysis module.
 // ==============================================================================
 
-import { FoodUnit } from '@/types/foodflow';
+import { FoodUnit, ServiceType, PatternAnalysisOutput } from '@/types/foodflow';
+
+export const DEMO_HOTEL_DATASET_LABEL = 'Illustrative Demo Hotel Dataset';
 
 export interface HistoricalDishRecord {
   dishName: string;
@@ -22,16 +24,56 @@ export interface HistoricalDishRecord {
 
 export interface HistoricalServiceRecord {
   id: string;
+  hotelId?: string;
   serviceDate: string;
   dayOfWeek: string;
+  isWeekend?: boolean;
   mealType: 'Breakfast' | 'Lunch' | 'Dinner';
+  serviceType?: ServiceType;
   context: 'Standard' | 'Exam Week' | 'Heavy Rain' | 'Weekend / Event';
-  expectedDiners: number;
-  actualDiners: number;
+  specialEvent?: boolean;
+  eventName?: string;
+  expectedCustomers?: number;
+  actualCustomers?: number;
+  expectedDiners: number; // backwards compatibility alias
+  actualDiners: number;   // backwards compatibility alias
   attendanceRatio: number; // actual / expected
+  foodPrepared?: number; // total kg/portions equivalent
+  foodServed?: number;
+  foodRemaining?: number;
+  foodWasted?: number;
   dishes: HistoricalDishRecord[];
   notes?: string;
 }
+
+export function normalizeRecord(r: HistoricalServiceRecord) {
+  const serviceType: ServiceType = (r.serviceType || r.mealType.toUpperCase()) as ServiceType;
+  const isWeekend = r.isWeekend ?? (r.dayOfWeek === 'Saturday' || r.dayOfWeek === 'Sunday');
+  const expected = r.expectedCustomers ?? r.expectedDiners;
+  const actual = r.actualCustomers ?? r.actualDiners;
+  const prep = r.foodPrepared ?? Math.round(expected * 0.98);
+  const srv = r.foodServed ?? actual;
+  const rem = r.foodRemaining ?? Math.max(0, prep - srv);
+  return {
+    ...r,
+    hotelId: r.hotelId || 'HOTEL-DECCAN-HYD',
+    serviceType,
+    isWeekend,
+    specialEvent: r.specialEvent ?? (r.context === 'Weekend / Event' || !!r.eventName),
+    eventName: r.eventName || (r.context === 'Weekend / Event' ? 'Deccan Grand Special Service' : undefined),
+    expectedCustomers: expected,
+    actualCustomers: actual,
+    expectedDiners: expected,
+    actualDiners: actual,
+    attendanceRatio: r.attendanceRatio || (actual / expected),
+    foodPrepared: prep,
+    foodServed: srv,
+    foodRemaining: rem,
+    foodWasted: r.foodWasted ?? Math.round(actual * 0.01),
+  };
+}
+
+
 
 export const HISTORICAL_SERVICES: HistoricalServiceRecord[] = [
   // WEEK 1
@@ -460,8 +502,229 @@ export const HISTORICAL_SERVICES: HistoricalServiceRecord[] = [
       { dishName: 'Tomato Dal / Dal Tadka', category: 'Dal & Gravy', unit: 'L', preparedQuantity: 19.0, servedQuantity: 17.1, leftoverQuantity: 1.9, wasteQuantity: 0.2, perDinerRate: 0.0215 },
       { dishName: 'Andhra Chicken Curry', category: 'Curry / Protein', unit: 'kg', preparedQuantity: 32.5, servedQuantity: 30.6, leftoverQuantity: 1.9, wasteQuantity: 0.0, perDinerRate: 0.0385 },
       { dishName: 'Mixed Vegetable Korma', category: 'Curry / Protein', unit: 'kg', preparedQuantity: 18.0, servedQuantity: 16.7, leftoverQuantity: 1.3, wasteQuantity: 0.1, perDinerRate: 0.0210 },
+    ],
+  },
+  {
+    id: 'SRV-DGH-026',
+    hotelId: 'HOTEL-DECCAN-HYD',
+    serviceDate: 'Day 26',
+    dayOfWeek: 'Wednesday',
+    isWeekend: false,
+    mealType: 'Dinner',
+    serviceType: 'DINNER',
+    context: 'Standard',
+    specialEvent: false,
+    expectedCustomers: 760,
+    actualCustomers: 735,
+    expectedDiners: 760,
+    actualDiners: 735,
+    attendanceRatio: 0.9671,
+    foodPrepared: 110,
+    foodServed: 104,
+    foodRemaining: 6,
+    foodWasted: 0.5,
+    dishes: [
+      { dishName: 'Hyderabadi Chicken Biryani', category: 'Staple', unit: 'kg', preparedQuantity: 58.0, servedQuantity: 55.2, leftoverQuantity: 2.8, wasteQuantity: 0.1, perDinerRate: 0.0751 },
+      { dishName: 'Paneer Butter Masala', category: 'Curry / Protein', unit: 'kg', preparedQuantity: 26.0, servedQuantity: 24.3, leftoverQuantity: 1.7, wasteQuantity: 0.1, perDinerRate: 0.0331 },
+      { dishName: 'Mirchi Ka Salan', category: 'Dal & Gravy', unit: 'L', preparedQuantity: 15.0, servedQuantity: 13.2, leftoverQuantity: 1.8, wasteQuantity: 0.2, perDinerRate: 0.0180 },
+      { dishName: 'Mixed Onion Raitha', category: 'Dairy', unit: 'L', preparedQuantity: 17.0, servedQuantity: 15.8, leftoverQuantity: 1.2, wasteQuantity: 0.0, perDinerRate: 0.0215 },
+    ],
+  },
+  {
+    id: 'SRV-DGH-027',
+    hotelId: 'HOTEL-DECCAN-HYD',
+    serviceDate: 'Day 27',
+    dayOfWeek: 'Thursday',
+    isWeekend: false,
+    mealType: 'Lunch',
+    serviceType: 'LUNCH',
+    context: 'Standard',
+    specialEvent: false,
+    expectedCustomers: 820,
+    actualCustomers: 795,
+    expectedDiners: 820,
+    actualDiners: 795,
+    attendanceRatio: 0.9695,
+    foodPrepared: 122,
+    foodServed: 116,
+    foodRemaining: 6,
+    foodWasted: 0.5,
+    dishes: [
+      { dishName: 'Steamed Sona Masoori Rice', category: 'Staple', unit: 'kg', preparedQuantity: 44.5, servedQuantity: 41.8, leftoverQuantity: 2.7, wasteQuantity: 0.2, perDinerRate: 0.0526 },
+      { dishName: 'Tomato Dal / Dal Tadka', category: 'Dal & Gravy', unit: 'L', preparedQuantity: 19.0, servedQuantity: 17.1, leftoverQuantity: 1.9, wasteQuantity: 0.2, perDinerRate: 0.0215 },
+      { dishName: 'Andhra Chicken Curry', category: 'Curry / Protein', unit: 'kg', preparedQuantity: 32.5, servedQuantity: 30.6, leftoverQuantity: 1.9, wasteQuantity: 0.0, perDinerRate: 0.0385 },
+      { dishName: 'Mixed Vegetable Korma', category: 'Curry / Protein', unit: 'kg', preparedQuantity: 18.0, servedQuantity: 16.7, leftoverQuantity: 1.3, wasteQuantity: 0.1, perDinerRate: 0.0210 },
       { dishName: 'Fresh Set Curd', category: 'Dairy', unit: 'L', preparedQuantity: 13.0, servedQuantity: 11.9, leftoverQuantity: 1.1, wasteQuantity: 0.0, perDinerRate: 0.0150 },
     ],
   },
+  {
+    id: 'SRV-DGH-028',
+    hotelId: 'HOTEL-DECCAN-HYD',
+    serviceDate: 'Day 28',
+    dayOfWeek: 'Friday',
+    isWeekend: false,
+    mealType: 'Dinner',
+    serviceType: 'DINNER',
+    context: 'Standard',
+    specialEvent: false,
+    expectedCustomers: 790,
+    actualCustomers: 765,
+    expectedDiners: 790,
+    actualDiners: 765,
+    attendanceRatio: 0.9684,
+    foodPrepared: 118,
+    foodServed: 112,
+    foodRemaining: 6,
+    foodWasted: 0.4,
+    dishes: [
+      { dishName: 'Hyderabadi Chicken Biryani', category: 'Staple', unit: 'kg', preparedQuantity: 60.0, servedQuantity: 57.5, leftoverQuantity: 2.5, wasteQuantity: 0.1, perDinerRate: 0.0752 },
+      { dishName: 'Paneer Butter Masala', category: 'Curry / Protein', unit: 'kg', preparedQuantity: 28.0, servedQuantity: 26.2, leftoverQuantity: 1.8, wasteQuantity: 0.1, perDinerRate: 0.0342 },
+      { dishName: 'Mirchi Ka Salan', category: 'Dal & Gravy', unit: 'L', preparedQuantity: 16.0, servedQuantity: 14.1, leftoverQuantity: 1.9, wasteQuantity: 0.2, perDinerRate: 0.0184 },
+      { dishName: 'Mixed Onion Raitha', category: 'Dairy', unit: 'L', preparedQuantity: 18.0, servedQuantity: 16.8, leftoverQuantity: 1.2, wasteQuantity: 0.0, perDinerRate: 0.0220 },
+    ],
+  },
+  {
+    id: 'SRV-DGH-029',
+    hotelId: 'HOTEL-DECCAN-HYD',
+    serviceDate: 'Day 29',
+    dayOfWeek: 'Saturday',
+    isWeekend: true,
+    mealType: 'Lunch',
+    serviceType: 'LUNCH',
+    context: 'Weekend / Event',
+    specialEvent: true,
+    eventName: 'Deccan Grand Saturday Banqueting Buffet',
+    expectedCustomers: 860,
+    actualCustomers: 845,
+    expectedDiners: 860,
+    actualDiners: 845,
+    attendanceRatio: 0.9826,
+    foodPrepared: 135,
+    foodServed: 130,
+    foodRemaining: 5,
+    foodWasted: 0.4,
+    dishes: [
+      { dishName: 'Steamed Sona Masoori Rice', category: 'Staple', unit: 'kg', preparedQuantity: 47.0, servedQuantity: 44.5, leftoverQuantity: 2.5, wasteQuantity: 0.2, perDinerRate: 0.0527 },
+      { dishName: 'Tomato Dal / Dal Tadka', category: 'Dal & Gravy', unit: 'L', preparedQuantity: 20.0, servedQuantity: 18.2, leftoverQuantity: 1.8, wasteQuantity: 0.2, perDinerRate: 0.0215 },
+      { dishName: 'Andhra Chicken Curry', category: 'Curry / Protein', unit: 'kg', preparedQuantity: 35.0, servedQuantity: 32.5, leftoverQuantity: 2.5, wasteQuantity: 0.0, perDinerRate: 0.0385 },
+      { dishName: 'Mixed Vegetable Korma', category: 'Curry / Protein', unit: 'kg', preparedQuantity: 19.0, servedQuantity: 17.8, leftoverQuantity: 1.2, wasteQuantity: 0.1, perDinerRate: 0.0211 },
+      { dishName: 'Fresh Set Curd', category: 'Dairy', unit: 'L', preparedQuantity: 14.0, servedQuantity: 12.8, leftoverQuantity: 1.2, wasteQuantity: 0.0, perDinerRate: 0.0151 },
+    ],
+  },
+  {
+    id: 'SRV-DGH-030',
+    hotelId: 'HOTEL-DECCAN-HYD',
+    serviceDate: 'Day 30 (Most Recent)',
+    dayOfWeek: 'Sunday',
+    isWeekend: true,
+    mealType: 'Dinner',
+    serviceType: 'DINNER',
+    context: 'Weekend / Event',
+    specialEvent: true,
+    eventName: 'Sunday Grand Banquet Feast',
+    expectedCustomers: 820,
+    actualCustomers: 805,
+    expectedDiners: 820,
+    actualDiners: 805,
+    attendanceRatio: 0.9817,
+    foodPrepared: 128,
+    foodServed: 123,
+    foodRemaining: 5,
+    foodWasted: 0.3,
+    dishes: [
+      { dishName: 'Hyderabadi Chicken Biryani', category: 'Staple', unit: 'kg', preparedQuantity: 63.0, servedQuantity: 60.5, leftoverQuantity: 2.5, wasteQuantity: 0.1, perDinerRate: 0.0752 },
+      { dishName: 'Paneer Butter Masala', category: 'Curry / Protein', unit: 'kg', preparedQuantity: 29.0, servedQuantity: 27.5, leftoverQuantity: 1.5, wasteQuantity: 0.1, perDinerRate: 0.0342 },
+      { dishName: 'Mirchi Ka Salan', category: 'Dal & Gravy', unit: 'L', preparedQuantity: 16.5, servedQuantity: 14.8, leftoverQuantity: 1.7, wasteQuantity: 0.2, perDinerRate: 0.0184 },
+      { dishName: 'Mixed Onion Raitha', category: 'Dairy', unit: 'L', preparedQuantity: 18.5, servedQuantity: 17.4, leftoverQuantity: 1.1, wasteQuantity: 0.0, perDinerRate: 0.0216 },
+    ],
+  },
 ];
+
+/**
+ * Historical Pattern Analysis Engine
+ * Computes transparent, empirical metrics directly from the stored 30-day records.
+ */
+export function calculatePatternAnalysis(): PatternAnalysisOutput {
+  const normalized = HISTORICAL_SERVICES.map(normalizeRecord);
+  const total = normalized.length;
+  const overallAvgDiners = normalized.reduce((s, r) => s + r.actualCustomers, 0) / (total || 1);
+
+  // 1. Day of Week Averages (Mon - Sun)
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const dayOfWeekAverages = days.map((day) => {
+    const matching = normalized.filter((r) => r.dayOfWeek === day);
+    const count = matching.length;
+    const avg = count > 0 ? matching.reduce((s, r) => s + r.actualCustomers, 0) / count : overallAvgDiners;
+    const varianceVsMeanPct = Number((((avg - overallAvgDiners) / overallAvgDiners) * 100).toFixed(1));
+    return {
+      day,
+      averageDiners: Math.round(avg),
+      sampleSize: count,
+      varianceVsMeanPct,
+    };
+  });
+
+  // 2. Weekday vs Weekend Average
+  const weekdays = normalized.filter((r) => !r.isWeekend);
+  const weekends = normalized.filter((r) => r.isWeekend);
+  const weekdayAverage = Math.round(weekdays.reduce((s, r) => s + r.actualCustomers, 0) / (weekdays.length || 1));
+  const weekendAverage = Math.round(weekends.reduce((s, r) => s + r.actualCustomers, 0) / (weekends.length || 1));
+  const weekdayVsWeekendPct = Number((((weekendAverage - weekdayAverage) / weekdayAverage) * 100).toFixed(1));
+
+  // 3. Meal Comparison (Breakfast vs Lunch vs Dinner)
+  const mealTypes: ServiceType[] = ['BREAKFAST', 'LUNCH', 'DINNER'];
+  const mealAverages = mealTypes.map((meal) => {
+    const matching = normalized.filter((r) => r.serviceType === meal);
+    const count = matching.length;
+    const avgDiners = count > 0 ? Math.round(matching.reduce((s, r) => s + r.actualCustomers, 0) / count) : 700;
+    const typicalRate = meal === 'BREAKFAST' ? 0.08 : meal === 'LUNCH' ? 0.15 : 0.14;
+    const typicalWastage = count > 0 ? Number(((matching.reduce((s, r) => s + r.foodWasted, 0) / matching.reduce((s, r) => s + r.foodPrepared, 0)) * 100).toFixed(1)) : 1.2;
+    return {
+      meal,
+      averageDiners: avgDiners,
+      averageConsumptionRateKg: typicalRate,
+      typicalWastagePct: typicalWastage,
+    };
+  });
+
+  // 4. Recent Trend (Last 7 days vs Previous 7 days)
+  const sorted = [...normalized].reverse();
+  const last7 = sorted.slice(0, 7);
+  const prev7 = sorted.slice(7, 14);
+  const avgLast7 = last7.reduce((s, r) => s + r.actualCustomers, 0) / (last7.length || 1);
+  const avgPrev7 = prev7.reduce((s, r) => s + r.actualCustomers, 0) / (prev7.length || 1);
+  const recent7DayTrendPct = Number((((avgLast7 - avgPrev7) / avgPrev7) * 100).toFixed(1));
+  const recentTrendDirection = recent7DayTrendPct > 1.5 ? 'Upward' : recent7DayTrendPct < -1.5 ? 'Downward' : 'Stable';
+
+  // 5. Special Event Multiplier
+  const specialRecords = normalized.filter((r) => r.specialEvent);
+  const specialAvgRatio = specialRecords.length > 0 
+    ? specialRecords.reduce((s, r) => s + r.attendanceRatio, 0) / specialRecords.length 
+    : 0.98;
+  const standardRecords = normalized.filter((r) => !r.specialEvent && r.context === 'Standard');
+  const standardAvgRatio = standardRecords.length > 0 
+    ? standardRecords.reduce((s, r) => s + r.attendanceRatio, 0) / standardRecords.length 
+    : 0.965;
+  const specialEventMultiplier = Number((specialAvgRatio / standardAvgRatio).toFixed(3));
+
+  // 6. Confidence Score
+  const confidenceScore = total >= 30 ? 96 : total >= 15 ? 85 : 60;
+  const confidenceLabel = confidenceScore >= 90 ? 'High' : confidenceScore >= 75 ? 'Medium' : 'Low';
+
+  return {
+    dayOfWeekAverages,
+    weekdayAverage,
+    weekendAverage,
+    weekdayVsWeekendPct,
+    mealAverages,
+    recent7DayTrendPct,
+    recentTrendDirection,
+    specialEventMultiplier,
+    confidenceScore,
+    confidenceLabel,
+    totalHistoricalRecords: total,
+    dateRangeCovered: '30 Operating Days (Deccan Grand Hotel Archive)',
+  };
+}
+
 

@@ -17,6 +17,9 @@ export async function POST(request: NextRequest) {
 
     const serviceDate = body?.serviceDate || new Date().toISOString().split('T')[0];
     const serviceMeal = body?.serviceMeal || 'Lunch';
+    const dayOfWeek = body?.dayOfWeek || undefined;
+    const specialEvent = body?.specialEvent || undefined;
+    const hotelCapacity = body?.hotelCapacity !== undefined ? Number(body.hotelCapacity) : undefined;
     const menuItem = body?.menuItem || 'Rice + Dal + Chicken';
     const context = body?.context || 'None';
 
@@ -30,6 +33,9 @@ export async function POST(request: NextRequest) {
       expectedDiners,
       serviceDate,
       serviceMeal,
+      dayOfWeek,
+      specialEvent,
+      hotelCapacity,
       menuItem,
       context,
       defaultBufferPct,
@@ -123,11 +129,13 @@ Provide a concise, 2-sentence operational explanation to the kitchen manager exp
       operationalRisk: calculation.operationalRisk,
       confidence: calculation.confidence,
       dishes: calculation.dishes,
+      calculationBreakdown: calculation.calculationBreakdown,
       factors: calculation.numericalForecast.factors,
       aiExplanation: finalExplanation,
       forecast: {
         ...calculation.numericalForecast,
         dishes: calculation.dishes,
+        calculationBreakdown: calculation.calculationBreakdown,
       },
       createdAt: new Date().toISOString(),
     };

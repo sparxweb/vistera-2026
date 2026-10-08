@@ -42,7 +42,7 @@ export function RecoveryScreen({
   const [newQuantity, setNewQuantity] = useState(surplusQuantity || propListing?.servings || 34);
   const [newPrepTime] = useState('11:45 AM');
   const [newDeadline, setNewDeadline] = useState('15:30 PM (Within 2h)');
-  const [newLocation, setNewLocation] = useState('Hostel Dining Hall — Loading Bay Dock 2, Gachibowli, Hyderabad');
+  const [newLocation, setNewLocation] = useState('Deccan Grand Hotel — Service Bay Dock 2, Gachibowli Corridor, Hyderabad');
   const [newNotes] = useState('Panned in thermal insulated SS carriers. Temp 67.2°C.');
 
   const stages: { stage: SurplusListingStatus; label: string }[] = [

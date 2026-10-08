@@ -14,10 +14,12 @@ import {
   Truck, 
   Users2, 
   Cpu, 
-  ArrowRight
+  ArrowRight,
+  Building2
 } from 'lucide-react';
 export type ScreenId =
   | 'overview'
+  | 'login'
   | 'dashboard'
   | 'forecast'
   | 'consumption'
@@ -330,18 +332,38 @@ export function Header({ activeScreen, onNavigate }: HeaderProps) {
           {/* ============================================================== */}
           {/* RIGHT: Primary Action / Settings Dock */}
           {/* ============================================================== */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             {isLanding ? (
-              <button
-                type="button"
-                onClick={() => onNavigate('dashboard')}
-                className="px-4 py-2 rounded-xl bg-[#0E382B] hover:bg-[#164E3D] text-white text-xs font-semibold shadow-xs hover:shadow-md transition-all flex items-center gap-2 cursor-pointer"
-              >
-                <span>Open Dashboard</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onNavigate('login')}
+                  className="px-3 py-1.5 rounded-xl border border-[#E6E4DC] text-xs font-semibold text-[#141618] hover:bg-[#FAF9F5] transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Building2 className="w-3.5 h-3.5 text-[#1B4D36]" />
+                  <span>Demo Login</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('dashboard')}
+                  className="px-4 py-2 rounded-xl bg-[#0E382B] hover:bg-[#164E3D] text-white text-xs font-semibold shadow-xs hover:shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Open Dashboard</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             ) : (
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onNavigate('login')}
+                  className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#D0E7DA] bg-[#EAF4EE] text-xs font-semibold text-[#1B4D36] hover:bg-[#D8EADB] transition-colors cursor-pointer"
+                  title="Facility: Deccan Grand Hotel (Click to switch)"
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span className="max-w-[130px] truncate">Deccan Grand Hotel</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => onNavigate('settings')}
@@ -350,8 +372,8 @@ export function Header({ activeScreen, onNavigate }: HeaderProps) {
                       ? 'bg-[#1B4D36] text-white border-[#1B4D36]'
                       : 'border-[#E6E4DC] text-[#585E68] hover:text-[#141618] hover:bg-[#FAF9F5]'
                   }`}
-                  title="Facility Settings"
-                  aria-label="Facility Settings"
+                  title="Facility Settings & API Health"
+                  aria-label="Facility Settings & API Health"
                 >
                   <Settings className="w-4 h-4" />
                 </button>
@@ -361,7 +383,7 @@ export function Header({ activeScreen, onNavigate }: HeaderProps) {
                   onClick={() => onNavigate('overview')}
                   className="hidden sm:inline-flex text-xs font-semibold text-[#737A87] hover:text-[#141618] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
                 >
-                  Exit to Home
+                  Exit
                 </button>
               </div>
             )}

@@ -1,5 +1,4 @@
 import {
-  KitchenProfile,
   NumericalForecast,
   LLMExplanation,
   ConsumptionRecord,
@@ -7,21 +6,35 @@ import {
   RecoveryOrganization,
   HistoryRecord,
   SystemNotification,
+  HotelProfile,
 } from '@/types/foodflow';
 import { calculateHaversineDistance } from '@/lib/geo/distance';
 
-export const DEMO_KITCHEN: KitchenProfile = {
-  id: 'kt-hyd-hostel-01',
-  name: 'College Hostel Dining Hall',
-  location: 'Central Campus — Gachibowli, Hyderabad',
+export const DEMO_HOTEL: HotelProfile = {
+  id: 'DGH-HYD-01',
+  name: 'Deccan Grand Hotel — Hyderabad',
+  hotelName: 'Deccan Grand Hotel — Hyderabad',
+  type: 'Large Hotel & Banqueting Facility',
+  location: 'Banjara Hills / Gachibowli Corridor, Hyderabad',
   city: 'Hyderabad',
-  shift: 'Lunch Service (12:00 - 14:30 IST)',
-  manager: 'Rajesh Nair, Chief Catering Warden',
+  state: 'Telangana, India',
+  shift: 'Lunch Service (12:30 - 15:00 IST)',
+  manager: 'Chef Arvind Varma, Executive Director of F&B',
   totalCapacity: 1000,
+  serviceCapacity: 1000,
+  averageDailyCustomers: 2250,
+  breakfastCapacity: 800,
+  lunchCapacity: 1000,
+  dinnerCapacity: 900,
+  operatingDays: 'All 7 Days (Monday – Sunday)',
+  isDemoHotel: true,
   latitude: 17.4447,
   longitude: 78.3483,
   defaultBufferPct: 3.0,
 };
+
+export const DEMO_KITCHEN: HotelProfile = DEMO_HOTEL;
+
 
 export const INITIAL_NUMERICAL_FORECAST: NumericalForecast = {
   expectedDiners: 820,

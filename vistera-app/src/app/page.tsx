@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Header, ScreenId } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { LandingScreen } from '@/components/screens/LandingScreen';
+import { LoginScreen } from '@/components/screens/LoginScreen';
 import { DashboardScreen } from '@/components/screens/DashboardScreen';
 import { ForecastScreen } from '@/components/screens/ForecastScreen';
 import { ConsumptionScreen } from '@/components/screens/ConsumptionScreen';
@@ -66,6 +67,7 @@ export default function Home() {
       const hash = window.location.hash.replace('#', '') as ScreenId;
       const validScreens: ScreenId[] = [
         'overview',
+        'login',
         'dashboard',
         'forecast',
         'consumption',
@@ -201,6 +203,13 @@ export default function Home() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
         {activeScreen === 'overview' && (
           <LandingScreen onNavigate={navigateTo} />
+        )}
+
+        {activeScreen === 'login' && (
+          <LoginScreen 
+            onLoginSuccess={() => navigateTo('dashboard')}
+            onNavigateLanding={() => navigateTo('overview')}
+          />
         )}
 
         {activeScreen === 'dashboard' && (

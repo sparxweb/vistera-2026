@@ -2,18 +2,33 @@ export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 export type ConfidenceLevel = 'High' | 'Medium' | 'Low';
 export type FoodUnit = 'kg' | 'L' | 'pieces' | 'portions';
 
-export interface KitchenProfile {
+export type ServiceType = 'BREAKFAST' | 'LUNCH' | 'DINNER';
+
+export interface HotelProfile {
   id: string;
   name: string;
+  hotelName?: string;
+  type: string;
   location: string;
   city: string;
+  state: string;
   shift: string;
   manager: string;
   totalCapacity: number;
+  serviceCapacity?: number;
+  averageDailyCustomers: number;
+  breakfastCapacity: number;
+  lunchCapacity: number;
+  dinnerCapacity: number;
+  operatingDays: string;
+  isDemoHotel: boolean;
   latitude: number;
   longitude: number;
   defaultBufferPct: number;
 }
+
+export type KitchenProfile = HotelProfile;
+
 
 export interface DishPreparationItem {
   id: string;
@@ -170,3 +185,76 @@ export interface SystemNotification {
   type: 'alert' | 'success' | 'info';
   read: boolean;
 }
+
+export interface ForecastCalculationBreakdown {
+  serviceType: ServiceType;
+  expectedCustomers: number;
+  comparableBaseline: number; // baseline from comparable historical shifts
+  dayOfWeek: string;
+  dayOfWeekEffectPct: number; // e.g. +4.8%
+  dayOfWeekEffectDiners: number;
+  isWeekend: boolean;
+  weekendEffectPct: number;
+  weekendEffectDiners: number;
+  specialEvent?: string;
+  specialEventEffectPct: number;
+  specialEventEffectDiners: number;
+  recentTrendPct: number;
+  recentTrendDiners: number;
+  unconstrainedPrediction: number;
+  hotelCapacityLimit: number; // 1000
+  isCapacityConstrained: boolean;
+  finalPredictedDiners: number;
+}
+
+export interface PatternAnalysisOutput {
+  dayOfWeekAverages: {
+    day: string;
+    averageDiners: number;
+    sampleSize: number;
+    varianceVsMeanPct: number;
+  }[];
+  weekdayAverage: number;
+  weekendAverage: number;
+  weekdayVsWeekendPct: number;
+  mealAverages: {
+    meal: ServiceType;
+    averageDiners: number;
+    averageConsumptionRateKg: number;
+    typicalWastagePct: number;
+  }[];
+  recent7DayTrendPct: number;
+  recentTrendDirection: 'Upward' | 'Stable' | 'Downward';
+  specialEventMultiplier: number;
+  confidenceScore: number; // 0 - 100
+  confidenceLabel: ConfidenceLevel;
+  totalHistoricalRecords: number;
+  dateRangeCovered: string;
+}
+
+export interface OrganizationMatchRecommendation {
+  organization: RecoveryOrganization;
+  matchScore: number; // 0 - 100
+  distanceKm: number;
+  foodTypeFit: boolean;
+  capacityFit: boolean;
+  matchReasons: string[];
+}
+
+export interface PickupRecord {
+  id: string;
+  surplusId: string;
+  organizationId: string;
+  organizationName: string;
+  foodDescription: string;
+  quantityDisplay: string;
+  scheduledTime: string;
+  pickupDeadline: string;
+  status: 'PENDING' | 'PICKUP_SCHEDULED' | 'IN_TRANSIT' | 'COMPLETED' | 'CANCELLED';
+  otpCode: string;
+  driverName?: string;
+  driverPhone?: string;
+  vehicleNumber?: string;
+  completedAt?: string;
+}
+

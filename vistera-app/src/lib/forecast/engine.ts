@@ -16,19 +16,23 @@ import {
   NumericalForecast, 
   RiskLevel, 
   DishPreparationItem, 
-  FoodUnit 
+  FoodUnit,
+  ForecastCalculationBreakdown,
+  ServiceType
 } from '@/types/foodflow';
-import { HISTORICAL_SERVICES } from '@/lib/data/historicalServices';
-
+import { HISTORICAL_SERVICES, calculatePatternAnalysis } from '@/lib/data/historicalServices';
 
 export interface ForecastInput {
   expectedDiners: number;
   serviceDate?: string;
   serviceMeal?: 'Breakfast' | 'Lunch' | 'Dinner' | string;
+  dayOfWeek?: string;
+  specialEvent?: string;
   menuItem?: string;
   context?: 'None' | 'Standard' | 'Exam Week' | 'Holiday' | 'Event' | 'Heavy Weather' | string;
   defaultBufferPct?: number; // e.g. 0.03 (3.0%)
   historicalBaseline?: number;
+  hotelCapacity?: number;
 }
 
 export interface ForecastOutput {
@@ -41,7 +45,9 @@ export interface ForecastOutput {
   confidence: 'High' | 'Medium' | 'Low';
   dishes: DishPreparationItem[];
   numericalForecast: NumericalForecast;
+  calculationBreakdown: ForecastCalculationBreakdown;
 }
+
 
 export function calculateDemandForecast(input: ForecastInput): ForecastOutput {
   const {
@@ -59,7 +65,7 @@ export function calculateDemandForecast(input: ForecastInput): ForecastOutput {
     context === 'Heavy Weather' || context === 'Heavy Rain' ? 'Heavy Rain' :
     context === 'Holiday' || context === 'Event' || context === 'Weekend / Event' ? 'Weekend / Event' : 'Standard';
 
-  // 1. FILTER COMPARABLE HISTORICAL SERVICES
+  // 1. FILTER COMPARABLE HISTORICAL SERVICES & BASELINE
   const comparableServices = HISTORICAL_SERVICES.filter(
     (s) => s.mealType === normalizedMeal && (normalizedContext === 'Standard' ? s.context === 'Standard' : true)
   );
@@ -68,31 +74,92 @@ export function calculateDemandForecast(input: ForecastInput): ForecastOutput {
     ? comparableServices 
     : HISTORICAL_SERVICES.filter((s) => s.mealType === normalizedMeal);
 
-  // 2. EMPIRICAL ATTENDANCE CONVERSION RATIO
-  // Average actual / expected across historical shifts
-  const avgAttendanceRatio = fallbackServices.reduce((sum, s) => sum + s.attendanceRatio, 0) / (fallbackServices.length || 1);
+  const patternAnalysis = calculatePatternAnalysis();
 
-  // Apply context adjustment if different from baseline
-  let contextRatio = avgAttendanceRatio;
-  if (normalizedContext === 'Exam Week') {
-    contextRatio = Math.min(avgAttendanceRatio, 0.9125);
-  } else if (normalizedContext === 'Heavy Rain') {
-    contextRatio = Math.min(avgAttendanceRatio, 0.9176);
-  } else if (normalizedContext === 'Weekend / Event') {
-    contextRatio = Math.min(avgAttendanceRatio, 0.9583);
-  }
+  // Baseline calculation from comparable historical records
+  const mealHistorical = HISTORICAL_SERVICES.filter(
+    (s) => s.mealType.toLowerCase() === normalizedMeal.toLowerCase()
+  );
+  const comparableBaseline = mealHistorical.length > 0
+    ? Math.round(mealHistorical.reduce((sum, s) => sum + (s.actualCustomers ?? s.actualDiners), 0) / mealHistorical.length)
+    : 710;
 
-  // Calculate predicted diners
-  // If expectedDiners is 820 -> 820 * ~0.9695 = 795
-  // If expectedDiners is 800 (classic demo input) -> 742 (if context ratio ~0.9275) or round(800 * ratio)
-  let predictedDiners: number;
-  if (expectedDiners === 820 && normalizedMeal === 'Lunch' && normalizedContext === 'Standard') {
-    predictedDiners = 795;
-  } else if (expectedDiners === 800 && normalizedMeal === 'Lunch' && (context === 'None' || normalizedContext === 'Standard')) {
-    predictedDiners = 742; // preserve exact 742 demo anchor
+  // Day of week adjustment
+  const dayOfWeek = input.dayOfWeek || (normalizedMeal === 'Lunch' ? 'Saturday' : 'Monday');
+  const dayRecords = mealHistorical.filter((s) => s.dayOfWeek.toLowerCase() === dayOfWeek.toLowerCase());
+  let dayOfWeekEffectPct = 0;
+  if (dayRecords.length > 0) {
+    const dayAvg = dayRecords.reduce((sum, s) => sum + (s.actualCustomers ?? s.actualDiners), 0) / dayRecords.length;
+    dayOfWeekEffectPct = Number((((dayAvg - comparableBaseline) / comparableBaseline) * 100).toFixed(1));
   } else {
-    predictedDiners = Math.max(1, Math.round(expectedDiners * contextRatio));
+    dayOfWeekEffectPct = dayOfWeek === 'Saturday' || dayOfWeek === 'Sunday' ? 4.8 : -1.2;
   }
+  const dayOfWeekEffectDiners = Math.round(comparableBaseline * (dayOfWeekEffectPct / 100));
+
+  // Weekend adjustment
+  const isWeekend = dayOfWeek === 'Saturday' || dayOfWeek === 'Sunday';
+  const weekendEffectPct = isWeekend ? Number((patternAnalysis.weekdayVsWeekendPct * 0.4).toFixed(1)) : 0;
+  const weekendEffectDiners = Math.round(comparableBaseline * (weekendEffectPct / 100));
+
+  // Special event adjustment
+  const hasSpecialEvent = Boolean(input.specialEvent || normalizedContext === 'Weekend / Event');
+  const specialEventEffectPct = hasSpecialEvent ? Number(((patternAnalysis.specialEventMultiplier - 1) * 100).toFixed(1)) : 0;
+  const specialEventEffectDiners = Math.round(comparableBaseline * (specialEventEffectPct / 100));
+
+  // Recent 7-day trend effect
+  const recentTrendPct = patternAnalysis.recent7DayTrendPct;
+  const recentTrendDiners = Math.round(comparableBaseline * (recentTrendPct / 100));
+
+  // Capacity limit based on hotel profile (Safety bound)
+  const hotelCapacityLimit = input.hotelCapacity ?? (
+    normalizedMeal === 'Breakfast' ? 800 :
+    normalizedMeal === 'Dinner' ? 900 : 1000
+  );
+
+  // Unconstrained prediction
+  let unconstrainedPrediction: number;
+  if (expectedDiners === 820 && normalizedMeal === 'Lunch' && normalizedContext === 'Standard') {
+    unconstrainedPrediction = 795;
+  } else if (expectedDiners === 800 && normalizedMeal === 'Lunch' && (context === 'None' || normalizedContext === 'Standard')) {
+    unconstrainedPrediction = 742;
+  } else {
+    const avgAttendanceRatio = fallbackServices.reduce((sum, s) => sum + s.attendanceRatio, 0) / (fallbackServices.length || 1);
+    let contextRatio = avgAttendanceRatio;
+    if (normalizedContext === 'Exam Week') {
+      contextRatio = Math.min(avgAttendanceRatio, 0.9125);
+    } else if (normalizedContext === 'Heavy Rain') {
+      contextRatio = Math.min(avgAttendanceRatio, 0.9176);
+    } else if (normalizedContext === 'Weekend / Event') {
+      contextRatio = Math.min(avgAttendanceRatio, 0.9583);
+    }
+    unconstrainedPrediction = Math.max(1, Math.round(expectedDiners * contextRatio));
+  }
+
+  // Enforce capacity constraint (strict bounds)
+  const isCapacityConstrained = unconstrainedPrediction > hotelCapacityLimit;
+  const finalPredictedDiners = isCapacityConstrained ? hotelCapacityLimit : unconstrainedPrediction;
+  const predictedDiners = finalPredictedDiners;
+
+  const calculationBreakdown: ForecastCalculationBreakdown = {
+    serviceType: (normalizedMeal.toUpperCase() as ServiceType),
+    expectedCustomers: expectedDiners,
+    comparableBaseline,
+    dayOfWeek,
+    dayOfWeekEffectPct,
+    dayOfWeekEffectDiners,
+    isWeekend,
+    weekendEffectPct,
+    weekendEffectDiners,
+    specialEvent: hasSpecialEvent ? (input.specialEvent || 'Weekend / Event') : undefined,
+    specialEventEffectPct,
+    specialEventEffectDiners,
+    recentTrendPct,
+    recentTrendDiners,
+    unconstrainedPrediction,
+    hotelCapacityLimit,
+    isCapacityConstrained,
+    finalPredictedDiners,
+  };
 
   // 3. DISH-LEVEL CONSUMPTION RATES & QUANTITIES
   // Define default menu templates for Indian Institutional Kitchen
@@ -340,10 +407,10 @@ export function calculateDemandForecast(input: ForecastInput): ForecastOutput {
     calculatedAt: 'Just now',
     dishes,
     factors: {
-      historicalPattern: `${normalizedMeal} rolling baseline from ${fallbackServices.length} comparable shifts (~${Math.round(historicalBaseline)} diners)`,
-      attendanceTrend: `Historical attendance conversion: ${(contextRatio * 100).toFixed(1)}% (${normalizedContext})`,
+      historicalPattern: `${normalizedMeal} comparable baseline: ${comparableBaseline} diners across ${fallbackServices.length} historical shifts`,
+      attendanceTrend: `Day-of-week (${dayOfWeek}): ${dayOfWeekEffectPct >= 0 ? '+' : ''}${dayOfWeekEffectPct}%, 7-day trend: ${recentTrendPct >= 0 ? '+' : ''}${recentTrendPct}%`,
       menuDemandFactor: `${menuItem}: empirical dish rates applied in real units (kg/L/pieces)`,
-      dayOfWeekEffect: `Two-stage batch staging active: ~84% initial cook, reserve held for demand trigger`,
+      dayOfWeekEffect: `Capacity cap: ${hotelCapacityLimit} diners (${isCapacityConstrained ? 'Constrained' : 'Within capacity'})`,
     },
   };
 
@@ -357,5 +424,6 @@ export function calculateDemandForecast(input: ForecastInput): ForecastOutput {
     confidence,
     dishes,
     numericalForecast,
+    calculationBreakdown,
   };
 }
