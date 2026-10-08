@@ -48,7 +48,7 @@ Rather than building an overwhelming, incomplete admin dashboard with mock value
 
 ### E. Database Persistence & Resilience (`src/lib/supabase/service.ts`)
 - Dual-layer storage architecture: Supabase PostgreSQL remote persistence + synchronous local storage fallback.
-- **Refresh Persistence Guarantee:** Creating a forecast and logging consumption remains 100% persisted across full browser page reloads.
+- **Refresh Persistence Guarantee:** Creating a forecast and logging consumption remains preserved via client fallback cache across full browser page reloads.
 
 ### F. Kitchen Control Center UI
 - Redesigned with Apple-level simplicity: 1 primary operational card per screen, 1 primary CTA, zero clutter.

@@ -29,7 +29,7 @@ $$\mathbf{FORECAST} \longrightarrow \mathbf{PREPARE} \longrightarrow \mathbf{MON
 - **Consumption Balance Evaluator (`src/lib/business/balance.ts`):** Calculates remaining meals and dynamically flags `SURPLUS`, `SHORTAGE`, or `BALANCED` states.
 - **Consumption API (`POST /api/consumption`):** Ingests actual service numbers and writes to PostgreSQL.
 - **Kitchen Control Center UI:** Redesigned with single primary CTAs and calm hierarchy.
-- **Dual-Layer Persistence:** Guaranteed zero data loss across full browser page reloads.
+- **Dual-Layer Persistence:** Client fallback cache preserves shift data across full browser page reloads.
 
 ---
 

@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 2. Database Persistence (Supabase PostgreSQL)
-    let consumptionId = `cons-${Date.now()}`;
+    let consumptionId = crypto.randomUUID();
     if (supabase) {
       try {
         const validForecastUuid =

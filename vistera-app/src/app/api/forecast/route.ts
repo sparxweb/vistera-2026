@@ -20,6 +20,11 @@ export async function POST(request: NextRequest) {
     const menuItem = body?.menuItem || 'Rice + Dal + Chicken';
     const context = body?.context || 'None';
 
+    const rawBuffer = body?.defaultBufferPct !== undefined ? Number(body.defaultBufferPct) : undefined;
+    const defaultBufferPct = rawBuffer !== undefined && !isNaN(rawBuffer) && rawBuffer > 0
+      ? (rawBuffer > 1 ? rawBuffer / 100 : rawBuffer)
+      : undefined;
+
     // 1. Deterministic Calculation (Strictly non-generative)
     const calculation = calculateDemandForecast({
       expectedDiners,
@@ -27,6 +32,7 @@ export async function POST(request: NextRequest) {
       serviceMeal,
       menuItem,
       context,
+      defaultBufferPct,
     });
 
     // 2. Qualitative AI Explanation (Gemini) — with robust fallback
@@ -65,7 +71,7 @@ Provide a concise, 2-sentence operational explanation to the kitchen manager exp
     }
 
     // 3. Database Persistence (Supabase PostgreSQL)
-    let forecastId = `fc-${Date.now()}`;
+    let forecastId = crypto.randomUUID();
     if (supabase) {
       try {
         const { data, error } = await supabase

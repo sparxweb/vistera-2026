@@ -140,7 +140,7 @@ export async function persistDemandForecast(
   menu: string,
   meal: string = 'Lunch'
 ): Promise<{ success: boolean; forecastId: string }> {
-  const generatedId = `fc-${Date.now()}`;
+  const generatedId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-4000-8000-${Date.now().toString().padStart(12, '0')}`;
   
   // Always update local persistent storage immediately
   setLocal(STORAGE_KEYS.FORECAST, forecast);
@@ -158,7 +158,7 @@ export async function persistDemandForecast(
     actualServed: 0,
     variance: 0,
     surplus: 0,
-    recoveryStatus: 'None (Zero Waste)',
+    recoveryStatus: 'None (Balanced)',
   };
   setLocal(STORAGE_KEYS.HISTORY, [newHistoryEntry, ...history.slice(0, 15)]);
 
@@ -227,7 +227,7 @@ export async function persistConsumption(
     if (record.surplusDetected > 0) {
       latest.recoveryStatus = 'Recovered';
     } else {
-      latest.recoveryStatus = 'None (Zero Waste)';
+      latest.recoveryStatus = 'None (Balanced)';
     }
     setLocal(STORAGE_KEYS.HISTORY, [latest, ...history.slice(1)]);
   }
@@ -238,7 +238,7 @@ export async function persistConsumption(
       const activeForecastId = getLocal<string>(STORAGE_KEYS.ACTIVE_FORECAST_ID, '');
       const validUuid = activeForecastId.includes('-') && activeForecastId.length === 36 ? activeForecastId : null;
       
-      const balanceStatus = record.surplusDetected > 10 
+      const balanceStatus = record.surplusDetected > 5 
         ? 'SURPLUS' 
         : record.mealsServed > record.mealsPrepared 
         ? 'SHORTAGE' 

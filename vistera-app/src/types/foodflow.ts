@@ -110,7 +110,7 @@ export interface HistoryRecord {
   actualServed: number;
   variance: number;
   surplus: number;
-  recoveryStatus: 'Recovered' | 'Internal Repurpose' | 'None (Zero Waste)';
+  recoveryStatus: 'Recovered' | 'Internal Repurpose' | 'None (Zero Waste)' | 'None (Balanced)';
 }
 
 export interface SystemNotification {

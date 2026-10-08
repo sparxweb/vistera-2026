@@ -70,6 +70,9 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
     setValidationError(null);
     setIsGenerating(true);
 
+    const savedBufferPct = typeof window !== 'undefined' ? window.localStorage.getItem('foodflow_buffer_pct') : null;
+    const defaultBufferPct = savedBufferPct && !isNaN(Number(savedBufferPct)) ? Number(savedBufferPct) : 2.426;
+
     try {
       const res = await fetch('/api/forecast', {
         method: 'POST',
@@ -79,6 +82,7 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
           serviceMeal: mealType,
           menuItem: selectedMenu,
           context: contextSignal,
+          defaultBufferPct,
         }),
       });
 
@@ -162,7 +166,7 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
         ],
         operationalRecommendation: `Stage ${calculatedDemand - 80} servings for initial service open. Hold final ${80 + buffer} servings until mid-shift headcount confirms trend.`,
         confidenceRationale: `Statistical regression weighted against rolling 60-day shift logs.`,
-        bufferAdvice: `Keep safety buffer under ${buffer + 5} servings to maintain strict zero-waste compliance.`
+        bufferAdvice: `Keep safety buffer under ${buffer + 5} servings to maintain waste reduction targets.`
       };
 
       setForecast(newForecast);

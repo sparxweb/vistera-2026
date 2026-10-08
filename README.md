@@ -10,6 +10,7 @@
 ## Quick Navigation
 
 - **Application Directory:** [`/vistera-app`](./vistera-app)
+- **Round 2 Official Report:** [`ROUND2_IMPLEMENTATION_REPORT.md`](./ROUND2_IMPLEMENTATION_REPORT.md)
 - **Technical Architecture:** [`/vistera-app/ARCHITECTURE.md`](./vistera-app/ARCHITECTURE.md)
 - **Database Schema:** [`/vistera-app/DATABASE.md`](./vistera-app/DATABASE.md)
 - **Round 2 Progress Report:** [`/vistera-app/ROUND2_PROGRESS.md`](./vistera-app/ROUND2_PROGRESS.md)

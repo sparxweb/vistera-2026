@@ -35,8 +35,20 @@ export function SettingsScreen({ onNavigate }: SettingsScreenProps) {
 
   const [savedNotice, setSavedNotice] = useState(false);
 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedPct = window.localStorage.getItem('foodflow_buffer_pct');
+      if (savedPct && !isNaN(Number(savedPct))) {
+        setBufferPercent(Number(savedPct));
+      }
+    }
+  }, []);
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('foodflow_buffer_pct', String(bufferPercent));
+    }
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 3000);
   };
@@ -145,7 +157,7 @@ export function SettingsScreen({ onNavigate }: SettingsScreenProps) {
                 className="w-full accent-[#0E382B] cursor-pointer"
               />
               <span className="text-[11px] text-[#5C6658] mt-1 block">
-                Recommended 2.4% buffer balances non-stockout guarantee with zero-waste targets.
+                Recommended 2.4% buffer balances non-stockout resilience with food waste reduction targets.
               </span>
             </div>
 
