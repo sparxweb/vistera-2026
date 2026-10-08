@@ -6,15 +6,13 @@ import {
   Sliders, 
   ShieldCheck, 
   CheckCircle2, 
-  Cpu, 
-  MapPin,
   Save
 } from 'lucide-react';
 import { ScreenId } from '@/components/layout/Header';
 import { DEMO_KITCHEN } from '@/lib/demoData';
 
 interface SettingsScreenProps {
-  onNavigate: (screen: ScreenId) => void;
+  onNavigate?: (screen: ScreenId) => void;
 }
 
 export function SettingsScreen({ onNavigate }: SettingsScreenProps) {
@@ -24,25 +22,24 @@ export function SettingsScreen({ onNavigate }: SettingsScreenProps) {
   const [location, setLocation] = useState('Building 4, Central Campus, Dock 2B');
 
   // 2. Operations
-  const [bufferPercent, setBufferPercent] = useState(2.4);
+  const [bufferPercent, setBufferPercent] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedPct = window.localStorage.getItem('foodflow_buffer_pct');
+      if (savedPct && !isNaN(Number(savedPct))) {
+        return Number(savedPct);
+      }
+    }
+    return 2.4;
+  });
   const [serviceDefaultMeal, setServiceDefaultMeal] = useState('Lunch');
   const [defaultShiftTime, setDefaultShiftTime] = useState('11:30 AM – 14:30 PM');
 
   // 3. AI & Security
   const [aiProvider, setAiProvider] = useState<'gemini' | 'nemotron'>('gemini');
-  const [apiStatus, setApiStatus] = useState('Connected • Latency 142ms');
-  const [securityStatus, setSecurityStatus] = useState('Supabase RLS Active • Encrypted');
+  const apiStatus = 'Connected • Latency 142ms';
+  const securityStatus = 'Supabase RLS Active • Encrypted';
 
   const [savedNotice, setSavedNotice] = useState(false);
-
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedPct = window.localStorage.getItem('foodflow_buffer_pct');
-      if (savedPct && !isNaN(Number(savedPct))) {
-        setBufferPercent(Number(savedPct));
-      }
-    }
-  }, []);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,7 +257,16 @@ export function SettingsScreen({ onNavigate }: SettingsScreenProps) {
         </div>
 
         {/* PRIMARY SAVE BUTTON */}
-        <div className="pt-2 flex justify-end">
+        <div className="pt-2 flex flex-col sm:flex-row justify-end gap-3">
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate('dashboard')}
+              className="px-6 py-3.5 border border-[#E5E5DE] bg-white hover:bg-[#F4F4EE] text-[#5C6658] rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer"
+            >
+              Back to Dashboard
+            </button>
+          )}
           <button
             type="submit"
             className="w-full sm:w-auto px-8 py-3.5 bg-[#0E382B] hover:bg-[#164E3D] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"

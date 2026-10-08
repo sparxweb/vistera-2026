@@ -96,8 +96,8 @@ Provide a concise, 2-sentence operational explanation to the kitchen manager exp
       }
     }
 
-    return NextResponse.json({
-      success: true,
+    // Cache latest generated forecast
+    latestCachedForecast = {
       forecastId,
       expectedDiners,
       predictedDemand: calculation.predictedDemand,
@@ -119,11 +119,71 @@ Provide a concise, 2-sentence operational explanation to the kitchen manager exp
         confidenceRationale: `Statistical regression weighted against rolling 60-day shift logs.`,
         bufferAdvice: `Keep safety buffer under ${calculation.bufferServings + 5} servings to maintain strict zero-landfill compliance.`
       },
+      createdAt: new Date().toISOString(),
+    };
+
+    return NextResponse.json({
+      success: true,
+      ...latestCachedForecast,
     });
   } catch (error) {
     console.error('Forecast API error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal error generating forecast.' },
+      { status: 500 }
+    );
+  }
+}
+
+let latestCachedForecast: Record<string, unknown> | null = null;
+
+export async function GET() {
+  try {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('demand_forecasts')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!error && data) {
+          return NextResponse.json({
+            success: true,
+            source: 'supabase',
+            forecast: data,
+          });
+        }
+      } catch (dbErr) {
+        console.warn('[FOODFLOW Supabase] GET forecast error:', dbErr);
+      }
+    }
+
+    if (latestCachedForecast) {
+      return NextResponse.json({
+        success: true,
+        source: 'memory_cache',
+        forecast: latestCachedForecast,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      source: 'baseline',
+      forecast: {
+        forecastId: '00000000-0000-4000-8000-000000000001',
+        expectedDiners: 800,
+        predictedDemand: 742,
+        recommendedPreparation: 760,
+        bufferServings: 18,
+        operationalRisk: 'LOW',
+      },
+    });
+  } catch (err) {
+    console.error('GET /api/forecast error:', err);
+    return NextResponse.json(
+      { success: false, error: 'Internal error retrieving forecast.' },
       { status: 500 }
     );
   }

@@ -54,8 +54,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
+    latestCachedConsumption = {
       consumptionId,
       preparedQuantity,
       servedQuantity,
@@ -67,11 +66,71 @@ export async function POST(request: NextRequest) {
       isBalanced: balance.isBalanced,
       statusLabel: balance.statusLabel,
       recommendedAction: balance.recommendedAction,
+      recordedAt: new Date().toISOString(),
+    };
+
+    return NextResponse.json({
+      success: true,
+      ...latestCachedConsumption,
     });
   } catch (error) {
     console.error('Consumption API error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal error evaluating consumption.' },
+      { status: 500 }
+    );
+  }
+}
+
+let latestCachedConsumption: Record<string, unknown> | null = null;
+
+export async function GET() {
+  try {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('daily_consumption')
+          .select('*')
+          .order('recorded_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!error && data) {
+          return NextResponse.json({
+            success: true,
+            source: 'supabase',
+            consumption: data,
+          });
+        }
+      } catch (dbErr) {
+        console.warn('[FOODFLOW Supabase] GET consumption error:', dbErr);
+      }
+    }
+
+    if (latestCachedConsumption) {
+      return NextResponse.json({
+        success: true,
+        source: 'memory_cache',
+        consumption: latestCachedConsumption,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      source: 'baseline',
+      consumption: {
+        consumptionId: '00000000-0000-4000-8000-000000000002',
+        preparedQuantity: 760,
+        servedQuantity: 728,
+        remainingQuantity: 32,
+        balanceStatus: 'SURPLUS',
+        isSurplus: true,
+      },
+    });
+  } catch (err) {
+    console.error('GET /api/consumption error:', err);
+    return NextResponse.json(
+      { success: false, error: 'Internal error retrieving consumption.' },
       { status: 500 }
     );
   }

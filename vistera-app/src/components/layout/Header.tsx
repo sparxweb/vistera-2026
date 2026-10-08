@@ -14,8 +14,6 @@ import {
   Truck, 
   Users2, 
   Cpu, 
-  CheckCircle2,
-  Clock,
   ArrowRight
 } from 'lucide-react';
 export type ScreenId =

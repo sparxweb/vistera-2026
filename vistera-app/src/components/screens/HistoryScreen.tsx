@@ -1,19 +1,12 @@
 'use client';
 
 import React from 'react';
-import { 
-  RotateCw, 
-  TrendingUp, 
-  CheckCircle2, 
-  ShieldCheck,
-  AlertCircle
-} from 'lucide-react';
 import { DEMO_HISTORY } from '@/lib/demoData';
 import { ScreenId } from '@/components/layout/Header';
 import { HistoryRecord } from '@/types/foodflow';
 
 interface HistoryScreenProps {
-  onNavigate: (screen: ScreenId) => void;
+  onNavigate?: (screen: ScreenId) => void;
   history?: HistoryRecord[];
 }
 
@@ -38,8 +31,19 @@ export function HistoryScreen({ onNavigate, history: propHistory }: HistoryScree
           </p>
         </div>
 
-        <div className="text-[10px] font-mono uppercase bg-[#E8EFEA] text-[#0E382B] px-3 py-1 rounded-full border border-[#C5DACD] self-start sm:self-auto font-semibold">
-          FEEDBACK LOOP ACTIVE
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate('forecast')}
+              className="text-[11px] font-semibold text-[#0E382B] bg-white border border-[#E5E5DE] hover:bg-[#F4F4EE] px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+            >
+              Run New Forecast →
+            </button>
+          )}
+          <div className="text-[10px] font-mono uppercase bg-[#E8EFEA] text-[#0E382B] px-3 py-1 rounded-full border border-[#C5DACD] font-semibold">
+            FEEDBACK LOOP ACTIVE
+          </div>
         </div>
       </div>
 
@@ -118,7 +122,6 @@ export function HistoryScreen({ onNavigate, history: propHistory }: HistoryScree
             <tbody className="divide-y divide-[#E5E5DE]">
               {history.map((row, idx) => {
                 const surplusVal = Math.max(0, row.prepared - row.actualServed);
-                const isMatch = surplusVal === 0 && row.actualServed <= row.prepared;
 
                 return (
                   <tr key={idx} className="hover:bg-[#FBFBF9] transition-colors">

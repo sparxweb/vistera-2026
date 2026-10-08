@@ -5,11 +5,8 @@ import {
   Users, 
   Database, 
   Cpu, 
-  Hash, 
   Sparkles, 
   UtensilsCrossed, 
-  ArrowDown, 
-  ArrowRight,
   ShieldAlert,
   ShieldCheck,
   CheckCircle2

@@ -274,7 +274,11 @@ export default function Home() {
       </main>
 
       {/* Editorial Footer */}
-      <Footer onNavigate={navigateTo} />
+      <Footer 
+        onNavigate={navigateTo} 
+        isSupabaseConnected={isSupabaseConnected} 
+        onResetDemo={handleResetDemo} 
+      />
     </div>
   );
 }

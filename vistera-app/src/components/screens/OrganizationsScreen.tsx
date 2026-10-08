@@ -2,10 +2,8 @@
 
 import React, { useState } from 'react';
 import { 
-  Building2, 
   MapPin, 
   ShieldCheck, 
-  Clock, 
   CheckCircle2, 
   ArrowRight,
   Phone

@@ -4,10 +4,8 @@ import React, { useState } from 'react';
 import { 
   Cpu, 
   ArrowRight, 
-  CheckCircle2, 
   AlertCircle, 
-  Sparkles,
-  RotateCcw
+  Sparkles
 } from 'lucide-react';
 import { NumericalForecast, LLMExplanation } from '@/types/foodflow';
 import { INITIAL_NUMERICAL_FORECAST, INITIAL_LLM_EXPLANATION } from '@/lib/demoData';

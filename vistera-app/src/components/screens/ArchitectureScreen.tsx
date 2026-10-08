@@ -5,14 +5,9 @@ import {
   Cpu, 
   Database, 
   Sparkles, 
-  Lock, 
   ShieldCheck, 
-  Server, 
   MapPin, 
-  ArrowRight, 
-  FileCode2,
   CheckCircle2,
-  AlertOctagon,
   Scale
 } from 'lucide-react';
 import { ArchitectureDiagram } from '@/components/ui/ArchitectureDiagram';

@@ -4,7 +4,6 @@ import React from 'react';
 import { 
   ArrowRight, 
   Scale, 
-  ShieldCheck, 
   ChevronRight,
   TrendingUp,
   UtensilsCrossed,

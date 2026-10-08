@@ -2,16 +2,12 @@
 
 import React, { useState } from 'react';
 import { 
-  Truck, 
   PlusCircle, 
   Clock, 
   MapPin, 
-  CheckCircle2, 
   Thermometer, 
   ArrowRight,
-  RotateCw,
-  Building2,
-  AlertCircle
+  RotateCw
 } from 'lucide-react';
 import { SurplusListing, SurplusListingStatus } from '@/types/foodflow';
 import { INITIAL_SURPLUS_LISTING } from '@/lib/demoData';
@@ -44,10 +40,10 @@ export function RecoveryScreen({
   // Form fields for new listing
   const [newFood, setNewFood] = useState('Herb-Roasted Chicken & Mediterranean Farro');
   const [newQuantity, setNewQuantity] = useState(surplusQuantity || propListing?.servings || 32);
-  const [newPrepTime, setNewPrepTime] = useState('11:15 AM');
+  const [newPrepTime] = useState('11:15 AM');
   const [newDeadline, setNewDeadline] = useState('15:30 PM (Within 2h)');
   const [newLocation, setNewLocation] = useState('Central Dining Hall — Dock 2B, Loading Bay');
-  const [newNotes, setNewNotes] = useState('Panned in thermal Cambro food carriers. Temp 68.4°C.');
+  const [newNotes] = useState('Panned in thermal Cambro food carriers. Temp 68.4°C.');
 
   const stages: { stage: SurplusListingStatus; label: string }[] = [
     { stage: 'listed', label: 'ACTIVE' },

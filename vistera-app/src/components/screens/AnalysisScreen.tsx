@@ -4,10 +4,7 @@ import React from 'react';
 import { 
   ArrowRight, 
   Sparkles, 
-  CheckCircle2, 
-  AlertCircle,
-  Lightbulb,
-  Truck
+  Lightbulb
 } from 'lucide-react';
 import { ScreenId } from '@/components/layout/Header';
 

@@ -4,9 +4,11 @@ import { ScreenId } from '@/components/layout/Header';
 
 interface FooterProps {
   onNavigate: (screen: ScreenId) => void;
+  isSupabaseConnected?: boolean;
+  onResetDemo?: () => void;
 }
 
-export function Footer({ onNavigate }: FooterProps) {
+export function Footer({ onNavigate, isSupabaseConnected, onResetDemo }: FooterProps) {
   return (
     <footer className="w-full bg-[#F4F4EE] border-t border-[#E5E5DE] py-12 text-xs text-[#5C6658] mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -85,12 +87,30 @@ export function Footer({ onNavigate }: FooterProps) {
 
         {/* Bottom bar */}
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-[#7D8878]">
-          <span>
-            FOODFLOW © 2026. Predict. Prevent. Recover.
-          </span>
-          <span className="font-mono">
-            Hackathon MVP • Supabase + Leaflet + Gemini Intelligence
-          </span>
+          <div className="flex items-center gap-3">
+            <span>
+              FOODFLOW © 2026. Predict. Prevent. Recover.
+            </span>
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] px-2 py-0.5 rounded-full border border-[#E5E5DE] bg-white text-[#5C6658]">
+              <span className={`w-1.5 h-1.5 rounded-full ${isSupabaseConnected ? 'bg-[#10B981]' : 'bg-[#D97706]'}`} />
+              {isSupabaseConnected ? 'Supabase Connected' : 'Client Fallback Cache'}
+            </span>
+          </div>
+          <div className="flex items-center gap-4 font-mono">
+            {onResetDemo && (
+              <button
+                type="button"
+                onClick={onResetDemo}
+                className="text-[10px] text-[#7D8878] hover:text-[#0E382B] underline cursor-pointer"
+                title="Reset local state to default demo values"
+              >
+                Reset Demo
+              </button>
+            )}
+            <span>
+              Hackathon MVP • Supabase + Leaflet + Gemini Intelligence
+            </span>
+          </div>
         </div>
       </div>
     </footer>

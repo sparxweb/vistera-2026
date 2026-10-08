@@ -3,11 +3,7 @@
 import React from 'react';
 import { 
   ArrowRight, 
-  Clock, 
-  Sparkles,
-  CheckCircle2,
-  Calendar,
-  AlertCircle
+  Clock
 } from 'lucide-react';
 import { ForecastChart } from '@/components/ui/ForecastChart';
 import { 

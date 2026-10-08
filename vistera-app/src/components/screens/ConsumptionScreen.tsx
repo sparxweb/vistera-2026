@@ -4,10 +4,8 @@ import React, { useState } from 'react';
 import { 
   ArrowRight, 
   RotateCcw,
-  Scale,
   AlertTriangle,
-  CheckCircle2,
-  TrendingDown
+  CheckCircle2
 } from 'lucide-react';
 import { ConsumptionRecord } from '@/types/foodflow';
 import { INITIAL_CONSUMPTION } from '@/lib/demoData';
@@ -43,6 +41,7 @@ export function ConsumptionScreen({
     if (onUpdateConsumption) {
       onUpdateConsumption({
         ...INITIAL_CONSUMPTION,
+        predictedDemand: predicted,
         mealsPrepared: newP,
         mealsServed: newS,
         remainingFood: Math.max(0, newP - newS),

@@ -70,12 +70,77 @@ export async function loadInitialState(): Promise<PersistentState> {
   const localHistory = getLocal<HistoryRecord[]>(STORAGE_KEYS.HISTORY, DEMO_HISTORY);
   const localActiveId = getLocal<string>(STORAGE_KEYS.ACTIVE_FORECAST_ID, 'fc-demo-01');
 
+  let activeForecast = localForecast;
+  let activeExplanation = localExplanation;
+  let activeConsumption = localConsumption;
+  let activeForecastId = localActiveId;
   let isConnected = false;
 
   // Try fetching from Supabase if configured
   if (supabase) {
     try {
-      // Check connection with recovery_orgs
+      // 1. Fetch latest demand_forecast from Supabase
+      const { data: dbForecast, error: fcError } = await supabase
+        .from('demand_forecasts')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!fcError && dbForecast) {
+        isConnected = true;
+        activeForecast = {
+          expectedDiners: dbForecast.expected_diners,
+          historicalAverage: 756,
+          predictedDemand: dbForecast.predicted_demand,
+          recommendedPreparation: dbForecast.recommended_preparation,
+          bufferServings: Math.max(1, dbForecast.recommended_preparation - dbForecast.predicted_demand),
+          confidence: 'High',
+          riskLevel: dbForecast.operational_risk || 'MEDIUM',
+          engineVersion: 'v2.4-deterministic-engine',
+          calculatedAt: new Date(dbForecast.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          factors: {
+            historicalPattern: `${dbForecast.service_meal || 'Lunch'} historical baseline: 756 meals`,
+            attendanceTrend: 'Persisted shift record from Supabase',
+            menuDemandFactor: `${dbForecast.menu_item || 'Rice + Dal + Chicken'} service`,
+            dayOfWeekEffect: 'Shift curve applied',
+          },
+        };
+        activeForecastId = dbForecast.id;
+        if (dbForecast.ai_explanation) {
+          activeExplanation = {
+            ...activeExplanation,
+            summary: dbForecast.ai_explanation,
+          };
+        }
+      }
+
+      // 2. Fetch latest daily_consumption from Supabase
+      const { data: dbConsumption, error: consError } = await supabase
+        .from('daily_consumption')
+        .select('*')
+        .order('recorded_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!consError && dbConsumption) {
+        isConnected = true;
+        activeConsumption = {
+          date: new Date(dbConsumption.recorded_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' (Supabase)',
+          predictedDemand: activeForecast.predictedDemand,
+          mealsPrepared: dbConsumption.prepared_quantity,
+          mealsServed: dbConsumption.served_quantity,
+          remainingFood: dbConsumption.remaining_quantity,
+          surplusDetected: dbConsumption.remaining_quantity,
+          overproductionPercent: dbConsumption.prepared_quantity > 0 
+            ? Number(((dbConsumption.remaining_quantity / dbConsumption.prepared_quantity) * 100).toFixed(1))
+            : 0,
+          mismatchLikelyFactors: INITIAL_CONSUMPTION.mismatchLikelyFactors,
+          aiRecommendation: INITIAL_CONSUMPTION.aiRecommendation,
+        };
+      }
+
+      // 3. Fetch recovery_orgs from Supabase
       const { data: orgsData, error: orgsError } = await supabase
         .from('recovery_orgs')
         .select('*')
@@ -122,13 +187,13 @@ export async function loadInitialState(): Promise<PersistentState> {
   }
 
   return {
-    forecast: localForecast,
-    explanation: localExplanation,
-    consumption: localConsumption,
+    forecast: activeForecast,
+    explanation: activeExplanation,
+    consumption: activeConsumption,
     surplusListing: localListing,
     organizations: getLocal(STORAGE_KEYS.ORGANIZATIONS, localOrgs),
     history: localHistory,
-    activeForecastId: localActiveId,
+    activeForecastId: activeForecastId,
     isSupabaseConnected: isConnected,
   };
 }

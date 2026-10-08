@@ -7,3 +7,6 @@ dist/
 build/
 .playwright-mcp/
 .DS_Store
+scratch/
+.temp/
+*.tsbuildinfo
