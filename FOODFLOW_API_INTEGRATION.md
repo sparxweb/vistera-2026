@@ -1,120 +1,157 @@
-# FOODFLOW — API Integrations & Resilient Architecture
+# FOODFLOW — API Integrations & Server Routes Audit
 *VISTERA 2026 Hackathon • Problem Statement PS-44: Cutting Food Waste*  
-*Tagline: “Predict. Prevent. Recover.”*
+*Audit Timestamp: October 9, 2026*
 
 ---
 
-## 1. Integration Philosophy & Resilience Principles
-FOODFLOW enforces a strict **zero-bloat, high-reliability** integration policy. Every external service has a clear operational use case, resilient server-side error handling, and offline-ready fallbacks.
-
-No unnecessary IoT, random ML, or commercial payment APIs are included.
+## 1. Overview of Server-Side Architecture
+FOODFLOW routes all sensitive external interactions and calculations through Next.js App Router route handlers. This isolates credentials from the client bundle and guarantees that failure in an external third-party API never breaks the user interface.
 
 ```
 +-----------------------------------------------------------------------------------+
 |                              Next.js Frontend (React 19)                         |
-|  - 7 Structured Operational Screens (Warm White, Dark Charcoal, Restrained Green) |
-|  - Leaflet + OpenStreetMap (Interactive Hyderabad Recovery Network)              |
 +-----------------------------------------------------------------------------------+
-                                         │
-                   ┌─────────────────────┴─────────────────────┐
-                   ▼                                           ▼
-      /api/forecast & /api/consumption                     /api/ai
-    (Deterministic Calculation & Storage)       (Server-Side Gemini 3.8 Flash)
-                   │                                           │
-         ┌─────────┴─────────┐                       ┌─────────┴─────────┐
-         ▼                   ▼                       ▼                   ▼
-    Supabase DB       Local Offline Cache      Google Gemini API    Pre-Calibrated
-    (PostgreSQL)      (LocalStorage/RAM)       (Natural Language)   Rule Fallback
+       │                                     │                               │
+       │ POST                                │ POST                          │ POST
+       ▼                                     ▼                               ▼
+/api/forecast                         /api/consumption                    /api/ai
+(Headcount + Prep Engine)             (Shift Actuals & Balance)           (Chef Copilot Router)
+       │                                     │                               │
+       ├─ Deterministic Forecast             ├─ Variance Calculation         ├─ Google Gemini 3.8
+       ├─ 12-Item Prep Calculator            ├─ Surplus Classification       └─ NVIDIA Nemotron
+       ├─ Supabase Insert (Attempt)          ├─ Supabase Insert (Attempt)         (Auto Fallback)
+       └─ AI Explanation (Router)            └─ History Calibration
 ```
 
 ---
 
-## 2. Service-by-Service Specifications
+## 2. Server API Route Specifications
 
-### 1. Leaflet + OpenStreetMap (Primary GIS Engine)
-- **Purpose**: Zero-cost, privacy-friendly, interactive geospatial visualization of the Hyderabad recovery corridor.
-- **Dependency**: `leaflet` & `react-leaflet`
-- **Cost**: **$0.00 / Zero Token Required** (No Mapbox or Google Maps billing account needed).
-- **Tile Source**: `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
-- **Attribution**: `&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors`
-- **Error Handling & Fallback**:
-  - Dynamically imported on the client (`next/dynamic` with `ssr: false`) to avoid server-side `window is not defined` errors.
-  - If network access to OSM tiles is blocked or offline, markers and Haversine distances remain 100% interactive and functional on top of coordinate grid geometry.
-- **Coverage**: Center coordinate `[17.4447, 78.3483]` (Deccan Grand Hotel, Gachibowli, Hyderabad) with 7 seeded partners across Gachibowli, Madhapur, Kondapur, Mehdipatnam, Ameerpet, Kukatpally, and Secunderabad.
-
-### 2. Supabase PostgreSQL
-- **Purpose**: Relational persistence for hotels, 90-day shift archives, forecasts, food preparation recommendations, consumption audits, and pickup dispatches.
-- **Environment Variables**:
-  - `NEXT_PUBLIC_SUPABASE_URL`: Public endpoint for client connectivity.
-  - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: Safe publishable anonymous key.
-- **Error Handling & Fallback**:
-  - All calls are wrapped in `try/catch` with 3-second latency timeouts.
-  - If Supabase is unreachable or unconfigured, FOODFLOW seamlessly persists data into a local reactive storage engine. The application **never crashes**.
-  - All UI elements display clear status badges: `Connected (Supabase PostgreSQL)` or `Local Operational Storage (Demo Active)`.
-
-### 3. Google Gemini 3.8 Flash
-- **Purpose**: Operational reasoning copilot providing qualitative staging advice and anomaly diagnostics for kitchen managers.
-- **Environment Variable**: `GEMINI_API_KEY` (Stored server-side only).
-- **Security Guarantee**:
-  - The API key is stored **strictly server-side** and called only within Next.js route handlers (`/api/forecast` and `/api/ai`).
-  - Zero server secrets are exposed in the client-side JavaScript bundle.
-- **Non-Hallucination Guardrails**:
-  - Gemini receives computed metrics (Baseline, Headcount, Initial Batch kg, Reserve Batch kg) as input.
-  - The system prompt explicitly forbids inventing numbers, changing meal counts, or hallucinating NGO details.
-- **Error Handling & Fallback**:
-  - If Gemini encounters rate limits (HTTP 429), quota exhaustion, or offline network connectivity, FOODFLOW immediately serves pre-calibrated operational guidance based on the deterministic calculation.
-  - The numerical forecast and preparation totals remain 100% operational regardless of AI availability.
-
-### 4. Optional: Mapbox GL JS (Secondary Geospatial Engine)
-- **Environment Variable**: `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`
-- **Role**: Preserved as an optional enhancement if an operator prefers vector styles, but Leaflet + OSM is the default out-of-the-box engine.
-
----
-
-## 3. Server Route Handlers (Next.js App Router)
-
-### 1. `/api/forecast` (POST)
-- **Input**:
+### 2.1 `POST /api/forecast`
+- **Purpose**: Generates a deterministic diner prediction and dish-level preparation quantities based on shift parameters.
+- **Request Format (JSON)**:
   ```json
   {
-    "hotelId": "DGH-HYD-01",
-    "serviceDate": "2026-10-10",
-    "serviceType": "lunch",
     "expectedDiners": 820,
-    "specialEvent": "Banqueting Conference"
+    "serviceDate": "2026-10-10",
+    "serviceMeal": "Lunch",
+    "dayOfWeek": "Saturday",
+    "specialEvent": "Banqueting Conference",
+    "hotelCapacity": 1000,
+    "menuItem": "Rice + Dal + Chicken",
+    "defaultBufferPct": 0.03
   }
   ```
-- **Execution**: Computes deterministic demand forecast and preparation recommendations, saves to database if connected, requests Gemini explanation.
-- **Output**:
+- **Validation**: Ensures `expectedDiners` is a positive number $> 0$; rejects non-numeric inputs with HTTP 400.
+- **Internal Execution**:
+  1. Calls `calculateDemandForecast()` in `src/lib/forecast/engine.ts`.
+  2. Constructs prompt for AI explanation copilot and invokes `askAI()` in `src/lib/ai/router.ts`.
+  3. Attempts insertion into Supabase `demand_forecasts` table.
+  4. Caches forecast in server memory.
+- **Response Format (JSON)**:
   ```json
   {
-    "forecast": {
-      "predictedCustomers": 795,
-      "historicalBaseline": 710,
-      "dayOfWeekEffect": 34,
-      "trendEffect": 15,
-      "eventEffect": 11,
-      "isCapacityConstrained": false,
-      "calculationBreakdown": { ... }
-    },
-    "prepRecommendations": [ ... ],
-    "explanation": "..."
+    "success": true,
+    "forecastId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "predictedDiners": 795,
+    "predictedDemand": 795,
+    "recommendedPreparation": 819,
+    "bufferServings": 24,
+    "operationalRisk": "LOW",
+    "dishes": [ ... ],
+    "calculationBreakdown": { ... },
+    "aiExplanation": { "summary": "...", "operationalRecommendation": "..." }
+  }
+  ```
+- **Side Effects**: Caches latest forecast; attempts Supabase insert.
+- **Error Behavior**: Returns HTTP 500 on unhandled error; gracefully substitutes deterministic text if Gemini/NVIDIA is offline.
+
+### 2.2 `POST /api/consumption`
+- **Purpose**: Audits post-service dining results, evaluates food waste, and classifies surplus.
+- **Request Format (JSON)**:
+  ```json
+  {
+    "forecastId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "preparedQuantity": 819,
+    "servedQuantity": 788,
+    "actualDiners": 788,
+    "predictedDiners": 795
+  }
+  ```
+- **Validation**: Enforces non-negative numbers for `preparedQuantity` and `servedQuantity`.
+- **Internal Execution**:
+  1. Calls `evaluateConsumptionBalance()` in `src/lib/business/balance.ts`.
+  2. Computes variance delta, remaining quantity, and status (`SURPLUS`, `BALANCED`, `SHORTAGE`).
+  3. Attempts insertion into Supabase `daily_consumption` table.
+- **Response Format (JSON)**:
+  ```json
+  {
+    "success": true,
+    "consumptionId": "uuid",
+    "remainingQuantity": 31,
+    "balanceStatus": "SURPLUS",
+    "isSurplus": true,
+    "recommendedAction": "Initiate food rescue listing."
   }
   ```
 
-### 2. `/api/ai` (POST)
-- **Input**: `{ "prompt": "...", "context": { ... } }`
-- **Output**: `{ "text": "...", "provider": "gemini-3.8-flash" | "fallback" }`
-
-### 3. `/api/consumption` (POST)
-- **Input**: Actual service audit (`actualCustomers`, `preparedKg`, `consumedKg`, `wasteKg`).
-- **Execution**: Calculates variance, records shift to historical archive, updates learning loop for future predictions.
+### 2.3 `POST /api/ai`
+- **Purpose**: General reasoning copilot for kitchen managers.
+- **Request Format (JSON)**:
+  ```json
+  {
+    "prompt": "Explain why Saturday lunch demand has +4.8% variance.",
+    "provider": "gemini"
+  }
+  ```
+- **Internal Execution**: Calls `askAI()` in `src/lib/ai/router.ts`.
+- **Response Format (JSON)**:
+  ```json
+  {
+    "success": true,
+    "answer": "Saturday lunch demand experiences increased corporate leisure turnout...",
+    "provider": "gemini"
+  }
+  ```
 
 ---
 
-## 4. API & Integration Health Diagnostic Card
-The **Integrations & Settings** screen provides a real-time status matrix:
-- **Database Connection**: `Connected (Supabase)` or `Local Operational Storage (Active)`
-- **AI Copilot (Gemini)**: `Connected (Server-side Verified)` or `Offline Rule Fallback`
-- **Hyderabad Recovery Map**: `Leaflet + OpenStreetMap (Active, Zero Token Required)`
-- **Historical Service Archive**: `90 Days / 158 Shifts (Deccan Grand Hotel Archive Verified)`
+## 3. AI Providers: Gemini & NVIDIA Integration
+
+### 3.1 Primary: Google Gemini 3.8 Flash
+- **SDK**: `@google/genai`
+- **Environment Variables**: `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-3.8-flash`
+- **Implementation File**: `src/lib/ai/gemini.ts`
+- **Strict Role**: Qualitative chef operational advice. **Never calculates numbers, headcount, or distances.**
+
+### 3.2 Secondary Fallback: NVIDIA Nemotron
+- **SDK**: `openai` (configured with NVIDIA NIM baseURL)
+- **Base URL**: `https://integrate.api.nvidia.com/v1`
+- **Model**: `nvidia/nemotron-3.5-lightning-30b-a3b`
+- **Environment Variable**: `NVIDIA_API_KEY`
+- **Implementation File**: `src/lib/ai/nvidia.ts`
+- **Router Logic (`src/lib/ai/router.ts`)**:
+  ```typescript
+  export async function askAI(prompt: string, provider: AIProvider = "gemini"): Promise<string> {
+    if (provider === "nvidia") return askNvidia(prompt);
+    try {
+      return await askGemini(prompt);
+    } catch (error) {
+      console.error("Gemini failed, switching to NVIDIA:", error);
+      return askNvidia(prompt);
+    }
+  }
+  ```
+- **Empirical Test Result**: **VERIFIED & WORKING**. An automated probe sent to NVIDIA NIM returned a valid completion successfully.
+
+---
+
+## 4. Integration Verification Summary Matrix
+
+| Service / API | Configured in Env | Referenced in Code | Runtime Tested | Status |
+| :--- | :---: | :---: | :---: | :--- |
+| **Supabase PostgreSQL** | `YES` | `YES` | `TESTED` | **CONFIGURED ONLY** (Endpoint connects, but remote tables unmigrated) |
+| **Google Gemini API** | `YES` | `YES` | `TESTED` | **CONFIGURED** (Server-side route active; fallback engaged) |
+| **NVIDIA NIM API** | `YES` | `YES` | `TESTED` | **VERIFIED WORKING** (Successfully responds from endpoint) |
+| **Leaflet OpenStreetMap** | `N/A (Free)` | `YES` | `TESTED` | **VERIFIED WORKING** (Zero tokens required; interactive map rendered) |
+| **Mapbox GL JS** | `OPTIONAL` | `YES` | `N/A` | **PRESERVED AS SECONDARY FALLBACK** (Leaflet is primary) |
