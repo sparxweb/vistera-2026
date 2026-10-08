@@ -1,30 +1,31 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { 
-  Bell, 
-  ChevronDown, 
   Menu, 
   X, 
-  Sparkles, 
-  Building2, 
-  CheckCircle2, 
-  Layers,
-  Info,
+  Settings, 
+  ChevronDown, 
+  TrendingUp, 
+  UtensilsCrossed, 
+  BarChart3, 
+  History, 
+  Truck, 
+  Users2, 
+  Cpu, 
+  CheckCircle2,
   Clock,
-  Settings
+  ArrowRight
 } from 'lucide-react';
-import { SystemNotification } from '@/types/foodflow';
-import { DEMO_NOTIFICATIONS, DEMO_KITCHEN } from '@/lib/demoData';
-
-export type ScreenId = 
-  | 'overview' 
-  | 'dashboard' 
-  | 'forecast' 
-  | 'consumption' 
+export type ScreenId =
+  | 'overview'
+  | 'dashboard'
+  | 'forecast'
+  | 'consumption'
   | 'analysis'
-  | 'recovery' 
-  | 'organizations' 
+  | 'recovery'
+  | 'organizations'
   | 'history'
   | 'architecture'
   | 'settings';
@@ -32,289 +33,469 @@ export type ScreenId =
 interface HeaderProps {
   activeScreen: ScreenId;
   onNavigate: (screen: ScreenId) => void;
-  unreadCount?: number;
 }
 
 export function Header({ activeScreen, onNavigate }: HeaderProps) {
+  const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<SystemNotification[]>(DEMO_NOTIFICATIONS);
-  const [kitchenSelectorOpen, setKitchenSelectorOpen] = useState(false);
-  const [selectedKitchen, setSelectedKitchen] = useState(DEMO_KITCHEN.name);
+  const [operationsOpen, setOperationsOpen] = useState(false);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
 
-  const navItems: { id: ScreenId; label: string }[] = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'dashboard', label: 'Command Center' },
-    { id: 'forecast', label: 'Forecast' },
-    { id: 'consumption', label: 'Consumption' },
-    { id: 'analysis', label: 'Analysis' },
-    { id: 'recovery', label: 'Recovery' },
-    { id: 'organizations', label: 'Organizations' },
-    { id: 'history', label: 'History' },
-    { id: 'architecture', label: 'AI Architecture' },
-  ];
+  const opsDropdownRef = useRef<HTMLDivElement>(null);
+  const recDropdownRef = useRef<HTMLDivElement>(null);
 
-  const unreadNotifications = notifications.filter((n) => !n.read).length;
+  const isLanding = activeScreen === 'overview';
 
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
+  // Scroll detection for cinematic smooth navbar transition
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 24);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (opsDropdownRef.current && !opsDropdownRef.current.contains(e.target as Node)) {
+        setOperationsOpen(false);
+      }
+      if (recDropdownRef.current && !recDropdownRef.current.contains(e.target as Node)) {
+        setRecoveryOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const isOperationsActive = ['forecast', 'consumption', 'analysis', 'history'].includes(activeScreen);
+  const isRecoveryActive = ['recovery', 'organizations'].includes(activeScreen);
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-[#FBFBFA]/90 backdrop-blur-md border-b border-[#E6E4DC] transition-all">
+    <header
+      className={`sticky top-0 z-40 w-full transition-all duration-300 ${
+        isScrolled || !isLanding
+          ? 'bg-[#FBFBFA]/95 backdrop-blur-md border-b border-[#E6E4DC] shadow-[0_2px_12px_rgba(20,22,24,0.03)]'
+          : 'bg-transparent border-b border-transparent'
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo & Tagline */}
-          <div className="flex items-center gap-6">
+        <div className="flex items-center justify-between h-18">
+          {/* LEFT: Official Brand Logo Asset */}
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => onNavigate('overview')}
-              className="flex items-center gap-2.5 text-left group"
+              className="flex items-center gap-2 group transition-opacity hover:opacity-90 cursor-pointer"
+              aria-label="FOODFLOW Home"
             >
-              <div className="w-8 h-8 rounded-lg bg-[#141618] flex items-center justify-center text-white font-mono font-bold text-sm tracking-wider group-hover:bg-[#1B4D36] transition-colors shadow-sm">
-                FF
-              </div>
-              <div>
-                <span className="font-bold tracking-tight text-base sm:text-lg text-[#141618]">
-                  FOODFLOW
-                </span>
-                <span className="text-[10px] text-[#737A87] font-medium tracking-wide block uppercase">
-                  Predict • Prevent • Recover
-                </span>
+              <div className="relative h-8 sm:h-9 w-32 sm:w-36 flex items-center">
+                <Image
+                  src="/foodflow-logo.jpeg"
+                  alt="FOODFLOW"
+                  width={280}
+                  height={75}
+                  priority
+                  className="h-full w-auto object-contain mix-blend-multiply"
+                />
               </div>
             </button>
 
-            {/* DEMO DATA badge */}
-            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FAF0E6] border border-[#F2D7C2] text-[#B85720] text-[10px] font-semibold tracking-wider uppercase">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#C6682F]" />
-              DEMO DATA LAYER
-            </div>
+            {/* Shift Context Indicator (Only when in Kitchen App) */}
+            {!isLanding && (
+              <div className="hidden md:flex items-center gap-2 pl-4 border-l border-[#E6E4DC] text-xs">
+                <span className="w-2 h-2 rounded-full bg-[#1B4D36] animate-pulse" />
+                <span className="font-semibold text-[#141618]">Central Kitchen</span>
+                <span className="text-[#8A929E]">•</span>
+                <span className="text-[#585E68]">Lunch Shift Active</span>
+              </div>
+            )}
           </div>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden xl:flex items-center gap-1">
-            {navItems.map((item) => {
-              const isActive = activeScreen === item.id;
-              return (
+          {/* ============================================================== */}
+          {/* CENTER: Context-Aware Navigation */}
+          {/* ============================================================== */}
+          {isLanding ? (
+            /* PUBLIC LANDING NAVBAR */
+            <nav className="hidden md:flex items-center gap-8">
+              <a
+                href="#problem"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('problem')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="text-xs font-semibold text-[#585E68] hover:text-[#141618] transition-colors"
+              >
+                The Problem
+              </a>
+              <a
+                href="#how-it-works"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="text-xs font-semibold text-[#585E68] hover:text-[#141618] transition-colors"
+              >
+                How It Works
+              </a>
+              <a
+                href="#workflow"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="text-xs font-semibold text-[#585E68] hover:text-[#141618] transition-colors"
+              >
+                7-Stage Loop
+              </a>
+            </nav>
+          ) : (
+            /* KITCHEN APPLICATION NAVBAR */
+            <nav className="hidden md:flex items-center gap-1.5">
+              {/* 1. Overview / Command Center */}
+              <button
+                type="button"
+                onClick={() => onNavigate('dashboard')}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  activeScreen === 'dashboard'
+                    ? 'bg-[#1B4D36] text-white shadow-xs'
+                    : 'text-[#585E68] hover:text-[#141618] hover:bg-[#F4F3ED]'
+                }`}
+              >
+                Control Center
+              </button>
+
+              {/* 2. Operations Menu Dropdown */}
+              <div className="relative" ref={opsDropdownRef}>
                 <button
-                  key={item.id}
                   type="button"
-                  onClick={() => onNavigate(item.id)}
-                  className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                    isActive
-                      ? 'bg-[#141618] text-white shadow-xs font-semibold'
-                      : 'text-[#585E68] hover:text-[#141618] hover:bg-[#F2F0E8]'
+                  onClick={() => {
+                    setOperationsOpen(!operationsOpen);
+                    setRecoveryOpen(false);
+                  }}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    isOperationsActive
+                      ? 'bg-[#EAF4EE] text-[#1B4D36] border border-[#D0E7DA]'
+                      : 'text-[#585E68] hover:text-[#141618] hover:bg-[#F4F3ED]'
                   }`}
                 >
-                  {item.label}
+                  <span>Operations</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${operationsOpen ? 'rotate-180' : ''}`} />
                 </button>
-              );
-            })}
-          </nav>
 
-          {/* Right Section: Notifications, Kitchen Selector, Profile */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Notifications Popover Trigger */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="relative p-2 rounded-lg text-[#585E68] hover:text-[#141618] hover:bg-[#F2F0E8] transition-colors"
-                aria-label="View notifications"
-              >
-                <Bell className="w-4 h-4" />
-                {unreadNotifications > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#C6682F]" />
-                )}
-              </button>
-
-              {/* Notification Dropdown */}
-              {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-88 bg-white rounded-xl border border-[#E6E4DC] shadow-[0_12px_32px_rgba(20,22,24,0.12)] p-4 z-50 animate-in fade-in duration-100">
-                  <div className="flex items-center justify-between pb-3 border-b border-[#F0EFEB]">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-[#141618]">
-                        Operational Alerts
-                      </span>
-                      {unreadNotifications > 0 && (
-                        <span className="text-[10px] font-semibold bg-[#FAF0E6] text-[#B85720] px-1.5 py-0.2 rounded-full">
-                          {unreadNotifications} new
-                        </span>
-                      )}
-                    </div>
-                    {unreadNotifications > 0 && (
-                      <button
-                        type="button"
-                        onClick={markAllRead}
-                        className="text-[11px] text-[#1B4D36] hover:underline"
-                      >
-                        Mark all read
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="mt-2 space-y-2 max-h-72 overflow-y-auto">
-                    {notifications.map((item) => (
-                      <div
-                        key={item.id}
-                        className={`p-2.5 rounded-lg border text-xs transition-colors ${
-                          item.read
-                            ? 'bg-white border-[#F0EFEB] opacity-75'
-                            : 'bg-[#FAF9F5] border-[#E8E6DE]'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-[#141618]">
-                            {item.title}
-                          </span>
-                          <span className="text-[10px] text-[#8A929E]">
-                            {item.timestamp}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-[#585E68] mt-1 leading-snug">
-                          {item.message}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="pt-2 mt-2 border-t border-[#F0EFEB] text-center">
-                    <span className="text-[10px] text-[#8A929E]">
-                      Live alerts synced to Supabase event stream
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Kitchen Selector Dropdown */}
-            <div className="relative hidden sm:block">
-              <button
-                type="button"
-                onClick={() => setKitchenSelectorOpen(!kitchenSelectorOpen)}
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[#E6E4DC] bg-white text-xs text-[#141618] hover:border-[#D0CDBF] transition-all"
-              >
-                <Building2 className="w-3.5 h-3.5 text-[#1B4D36]" />
-                <span className="font-medium max-w-[130px] truncate">
-                  {selectedKitchen}
-                </span>
-                <ChevronDown className="w-3 h-3 text-[#8A929E]" />
-              </button>
-
-              {kitchenSelectorOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl border border-[#E6E4DC] shadow-[0_12px_32px_rgba(20,22,24,0.12)] p-2 z-50">
-                  <div className="px-3 py-1.5 text-[10px] font-semibold text-[#8A929E] uppercase tracking-wider">
-                    Institutional Facilities
-                  </div>
-                  {[
-                    'FOODFLOW Central Kitchen',
-                    'North Campus Dining Commons',
-                    'West Wing Executive Bistro',
-                  ].map((k) => (
+                {operationsOpen && (
+                  <div className="absolute top-full left-0 mt-2 w-64 rounded-2xl bg-white/95 backdrop-blur-md border border-[#E6E4DC] p-2 shadow-[0_12px_32px_rgba(20,22,24,0.08)] z-50 animate-in fade-in duration-150">
                     <button
-                      key={k}
                       type="button"
                       onClick={() => {
-                        setSelectedKitchen(k);
-                        setKitchenSelectorOpen(false);
+                        onNavigate('forecast');
+                        setOperationsOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center justify-between ${
-                        selectedKitchen === k
-                          ? 'bg-[#EAF4EE] text-[#1B4D36] font-semibold'
-                          : 'text-[#373C44] hover:bg-[#FAF9F5]'
-                      }`}
+                      className="w-full text-left p-2.5 rounded-xl hover:bg-[#F8F7F2] transition-colors flex items-start gap-3 cursor-pointer group"
                     >
-                      <span>{k}</span>
-                      {selectedKitchen === k && (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-[#1B4D36]" />
-                      )}
+                      <div className="w-7 h-7 rounded-lg bg-[#EAF4EE] text-[#1B4D36] flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#141618]">Demand Forecast</div>
+                        <div className="text-[11px] text-[#737A87]">Predict today&apos;s meal demand</div>
+                      </div>
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
 
-            {/* User Profile Pill */}
-            <div className="flex items-center gap-2 pl-2 border-l border-[#E6E4DC]">
-              <div className="w-7 h-7 rounded-full bg-[#1B4D36] text-white flex items-center justify-center text-xs font-bold">
-                ER
-              </div>
-              <div className="hidden xl:block text-left">
-                <span className="text-xs font-semibold text-[#141618] block leading-none">
-                  Elena Rostova
-                </span>
-                <span className="text-[10px] text-[#737A87]">
-                  Culinary Director
-                </span>
-              </div>
-            </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onNavigate('consumption');
+                        setOperationsOpen(false);
+                      }}
+                      className="w-full text-left p-2.5 rounded-xl hover:bg-[#F8F7F2] transition-colors flex items-start gap-3 cursor-pointer group"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-[#FCF2EB] text-[#C6682F] flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                        <UtensilsCrossed className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#141618]">Consumption Log</div>
+                        <div className="text-[11px] text-[#737A87]">Track served & detect surplus</div>
+                      </div>
+                    </button>
 
-            {/* Settings Quick Access Button */}
-            <button
-              type="button"
-              onClick={() => onNavigate('settings')}
-              className={`p-2 rounded-lg transition-colors ${
-                activeScreen === 'settings'
-                  ? 'bg-[#141618] text-white shadow-xs'
-                  : 'text-[#585E68] hover:text-[#141618] hover:bg-[#F2F0E8]'
-              }`}
-              aria-label="Facility Settings"
-              title="Facility & Model Settings"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onNavigate('analysis');
+                        setOperationsOpen(false);
+                      }}
+                      className="w-full text-left p-2.5 rounded-xl hover:bg-[#F8F7F2] transition-colors flex items-start gap-3 cursor-pointer group"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-[#F0EFEB] text-[#585E68] flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                        <BarChart3 className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#141618]">Mismatch Analysis</div>
+                        <div className="text-[11px] text-[#737A87]">Evaluate likely factors & advice</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onNavigate('history');
+                        setOperationsOpen(false);
+                      }}
+                      className="w-full text-left p-2.5 rounded-xl hover:bg-[#F8F7F2] transition-colors flex items-start gap-3 cursor-pointer group border-t border-[#F0EFEB] mt-1 pt-2"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-[#F4F3ED] text-[#141618] flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                        <History className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#141618]">Continuous Learning</div>
+                        <div className="text-[11px] text-[#737A87]">Past shifts & feedback log</div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Recovery Menu Dropdown */}
+              <div className="relative" ref={recDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecoveryOpen(!recoveryOpen);
+                    setOperationsOpen(false);
+                  }}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                    isRecoveryActive
+                      ? 'bg-[#EAF4EE] text-[#1B4D36] border border-[#D0E7DA]'
+                      : 'text-[#585E68] hover:text-[#141618] hover:bg-[#F4F3ED]'
+                  }`}
+                >
+                  <span>Recovery</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${recoveryOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {recoveryOpen && (
+                  <div className="absolute top-full left-0 mt-2 w-64 rounded-2xl bg-white/95 backdrop-blur-md border border-[#E6E4DC] p-2 shadow-[0_12px_32px_rgba(20,22,24,0.08)] z-50 animate-in fade-in duration-150">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onNavigate('recovery');
+                        setRecoveryOpen(false);
+                      }}
+                      className="w-full text-left p-2.5 rounded-xl hover:bg-[#F8F7F2] transition-colors flex items-start gap-3 cursor-pointer group"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-[#EAF4EE] text-[#1B4D36] flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                        <Truck className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#141618]">Surplus Listings</div>
+                        <div className="text-[11px] text-[#737A87]">Manage active donations & pipeline</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onNavigate('organizations');
+                        setRecoveryOpen(false);
+                      }}
+                      className="w-full text-left p-2.5 rounded-xl hover:bg-[#F8F7F2] transition-colors flex items-start gap-3 cursor-pointer group"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-[#FCF2EB] text-[#C6682F] flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                        <Users2 className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#141618]">Recovery Partners & Map</div>
+                        <div className="text-[11px] text-[#737A87]">Verified shelters & live routing</div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Architecture Link */}
+              <button
+                type="button"
+                onClick={() => onNavigate('architecture')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  activeScreen === 'architecture'
+                    ? 'bg-[#141618] text-white'
+                    : 'text-[#737A87] hover:text-[#141618]'
+                }`}
+              >
+                AI Pipeline
+              </button>
+            </nav>
+          )}
+
+          {/* ============================================================== */}
+          {/* RIGHT: Primary Action / Settings Dock */}
+          {/* ============================================================== */}
+          <div className="flex items-center gap-3">
+            {isLanding ? (
+              <button
+                type="button"
+                onClick={() => onNavigate('dashboard')}
+                className="px-4 py-2 rounded-xl bg-[#0E382B] hover:bg-[#164E3D] text-white text-xs font-semibold shadow-xs hover:shadow-md transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <span>Open Dashboard</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onNavigate('settings')}
+                  className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                    activeScreen === 'settings'
+                      ? 'bg-[#1B4D36] text-white border-[#1B4D36]'
+                      : 'border-[#E6E4DC] text-[#585E68] hover:text-[#141618] hover:bg-[#FAF9F5]'
+                  }`}
+                  title="Facility Settings"
+                  aria-label="Facility Settings"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onNavigate('overview')}
+                  className="hidden sm:inline-flex text-xs font-semibold text-[#737A87] hover:text-[#141618] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                >
+                  Exit to Home
+                </button>
+              </div>
+            )}
 
             {/* Mobile Hamburger Button */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg text-[#585E68] hover:text-[#141618] hover:bg-[#F2F0E8] xl:hidden transition-colors"
+              className="md:hidden p-2 rounded-xl border border-[#E6E4DC] text-[#141618] hover:bg-[#FAF9F5] cursor-pointer"
               aria-label="Toggle navigation menu"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
+      {/* ============================================================== */}
+      {/* MOBILE FULL-HEIGHT SLIDING DRAWER */}
+      {/* ============================================================== */}
       {mobileMenuOpen && (
-        <div className="xl:hidden border-t border-[#E6E4DC] bg-[#FBFBFA] px-4 pt-3 pb-6 space-y-2 animate-in slide-in-from-top-2 duration-150">
-          <div className="flex items-center justify-between py-1 mb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8A929E]">
-              Navigation
-            </span>
-            <span className="text-[10px] bg-[#FAF0E6] text-[#B85720] px-2 py-0.5 rounded font-mono">
-              DEMO MODE
-            </span>
-          </div>
+        <div className="md:hidden fixed inset-0 top-18 bg-[#FBFBFA] z-50 border-t border-[#E6E4DC] p-6 overflow-y-auto animate-in slide-in-from-top duration-200">
+          <div className="space-y-6 max-w-sm mx-auto">
+            {/* Workspace Section */}
+            <div>
+              <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#8A929E] mb-2">
+                WORKSPACE
+              </div>
+              <div className="space-y-1">
+                {[
+                  { id: 'dashboard' as ScreenId, label: 'Control Center', icon: BarChart3 },
+                  { id: 'forecast' as ScreenId, label: 'Demand Forecast', icon: TrendingUp },
+                  { id: 'consumption' as ScreenId, label: 'Consumption Log', icon: UtensilsCrossed },
+                  { id: 'analysis' as ScreenId, label: 'Mismatch Analysis', icon: BarChart3 },
+                  { id: 'history' as ScreenId, label: 'Continuous Learning', icon: History },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        onNavigate(item.id);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-3 transition-colors ${
+                        activeScreen === item.id ? 'bg-[#1B4D36] text-white' : 'text-[#141618] hover:bg-[#F4F3ED]'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-          <div className="grid grid-cols-2 gap-1.5">
-            {navItems.map((item) => {
-              const isActive = activeScreen === item.id;
-              return (
+            {/* Recovery Section */}
+            <div>
+              <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#8A929E] mb-2">
+                RECOVERY & LOGISTICS
+              </div>
+              <div className="space-y-1">
+                {[
+                  { id: 'recovery' as ScreenId, label: 'Surplus Listings', icon: Truck },
+                  { id: 'organizations' as ScreenId, label: 'Recovery Partners & Map', icon: Users2 },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        onNavigate(item.id);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-3 transition-colors ${
+                        activeScreen === item.id ? 'bg-[#1B4D36] text-white' : 'text-[#141618] hover:bg-[#F4F3ED]'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* System Section */}
+            <div>
+              <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#8A929E] mb-2">
+                SYSTEM
+              </div>
+              <div className="space-y-1">
                 <button
-                  key={item.id}
                   type="button"
                   onClick={() => {
-                    onNavigate(item.id);
+                    onNavigate('architecture');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    isActive
-                      ? 'bg-[#141618] text-white font-semibold'
-                      : 'bg-white border border-[#E6E4DC] text-[#373C44] hover:bg-[#F2F0E8]'
+                  className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-3 transition-colors ${
+                    activeScreen === 'architecture' ? 'bg-[#1B4D36] text-white' : 'text-[#141618] hover:bg-[#F4F3ED]'
                   }`}
                 >
-                  {item.label}
+                  <Cpu className="w-4 h-4" />
+                  <span>AI Architecture</span>
                 </button>
-              );
-            })}
-          </div>
-
-          <div className="pt-3 border-t border-[#EAE7DD] flex items-center justify-between text-xs text-[#6F7682]">
-            <span>Active Shift: Lunch (11:30 - 14:30)</span>
-            <span className="font-mono text-[10px]">v2.4-PROTOTYPE</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onNavigate('settings');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-3 transition-colors ${
+                    activeScreen === 'settings' ? 'bg-[#1B4D36] text-white' : 'text-[#141618] hover:bg-[#F4F3ED]'
+                  }`}
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>Facility Settings</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onNavigate('overview');
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#737A87] hover:bg-[#F4F3ED] transition-colors"
+                >
+                  Exit to Landing Page
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
