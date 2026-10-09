@@ -3,7 +3,7 @@
 > **Hackathon Track:** VISTERA 2026  
 > **Problem Statement:** PS-44 — Cutting Food Waste  
 > **Target Sector:** Commercial Hospitality, Banquet Operations & Community Food Redistribution  
-> **Master Documentation:** For comprehensive technical specifications, mathematical derivations, database schemas, test results, and live judge scripts, see [**`FOODFLOW_MASTER_DOCUMENTATION.md`**](./FOODFLOW_MASTER_DOCUMENTATION.md).
+> **Master Documentation:** For comprehensive technical specifications, mathematical derivations, database schemas, test results, verification audit matrix, and live judge scripts, see [**`FOODFLOW_MASTER.md`**](./FOODFLOW_MASTER.md).
 
 ---
 
@@ -97,7 +97,7 @@ The application was tested and verified across 6 responsive viewport resolutions
 - **AI Operational Briefs:** Google Gemini 3.8 Flash via official `@google/genai` SDK
 - **Maps & Geolocation:** Leaflet `1.9.4`, React-Leaflet `4.2.1`, OpenStreetMap tile servers
 - **Automated Verification:** Custom Node.js ESM test suite (`76/76` tests passing, 100% pass rate)
-- **Release Audit Report:** Full feature-by-feature verification inventory in [**`ROUND3_FULL_SYSTEM_AUDIT_REPORT.md`**](./ROUND3_FULL_SYSTEM_AUDIT_REPORT.md).
+- **Release Audit Report:** Full feature-by-feature verification inventory in [**`FOODFLOW_MASTER.md` (Section 21)**](./FOODFLOW_MASTER.md#section-21--final-verification-checklist--audit-matrix).
 
 ---
 
@@ -168,4 +168,4 @@ Configure the following variables in `vistera-app/.env.local` (referenced by nam
 
 For in-depth analysis, architectural diagrams, formula derivations, code examples, audit reports, judge Q&As, and live demonstration scripts, please consult:
 
-👉 [**`FOODFLOW_MASTER_DOCUMENTATION.md`**](./FOODFLOW_MASTER_DOCUMENTATION.md)
+👉 [**`FOODFLOW_MASTER.md`**](./FOODFLOW_MASTER.md)
