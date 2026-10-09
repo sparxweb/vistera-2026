@@ -2,19 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { askAI, type AIProvider } from "@/lib/ai/router";
 
 export async function POST(request: NextRequest) {
+    let body;
     try {
-        const body = await request.json();
+        body = await request.json();
+    } catch {
+        return NextResponse.json(
+            { success: false, error: "Malformed or missing JSON body." },
+            { status: 400 }
+        );
+    }
 
-        const prompt = body?.prompt;
-        const provider = body?.provider as AIProvider | undefined;
+    const prompt = body?.prompt;
+    const provider = body?.provider as AIProvider | undefined;
 
-        if (!prompt || typeof prompt !== "string") {
-            return NextResponse.json(
-                { error: "A prompt is required." },
-                { status: 400 }
-            );
-        }
+    if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
+        return NextResponse.json(
+            { success: false, error: "A valid non-empty prompt string is required." },
+            { status: 400 }
+        );
+    }
 
+    try {
         const answer = await askAI(prompt, provider || "gemini");
 
         return NextResponse.json({
@@ -22,15 +30,14 @@ export async function POST(request: NextRequest) {
             answer,
             provider: provider || "gemini",
         });
-    } catch (error) {
-        console.error("AI route error:", error);
-
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "AI service unavailable.";
         return NextResponse.json(
             {
                 success: false,
-                error: "AI request failed.",
+                error: errorMessage,
             },
-            { status: 500 }
+            { status: 503 }
         );
     }
 }

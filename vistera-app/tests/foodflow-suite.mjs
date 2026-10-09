@@ -33,6 +33,10 @@ import { DEMO_HOTEL, DEMO_ORGANIZATIONS, DEMO_HOTEL_USER, DEMO_NGO, INITIAL_RECO
 import { calculateServiceBalance, calculateDishBalance, evaluateConsumptionBalance } from '../src/lib/business/balance.ts';
 import { calculateSmartWasteInsights } from '../src/lib/business/wasteInsights.ts';
 import { cleanRawAIResponse, parseKitchenInsights } from '../src/lib/ai/cleaner.ts';
+import { NextRequest } from 'next/server';
+import { POST as forecastPost, GET as forecastGet } from '../src/app/api/forecast/route.ts';
+import { POST as consumptionPost, GET as consumptionGet } from '../src/app/api/consumption/route.ts';
+import { POST as aiPost } from '../src/app/api/ai/route.ts';
 import {
   createRecoveryOffer,
   submitSafetyReview,
@@ -919,6 +923,131 @@ test('Insights 6: Evaluates chronological trend between earlier and recent opera
   assert.ok(['IMPROVING', 'WORSENING', 'STABLE'].includes(insights.historicalTrend.status));
   assert.ok(typeof insights.historicalTrend.changePct === 'number');
   assert.ok(insights.historicalTrend.description.length > 10);
+});
+
+// 16. FULL-SYSTEM API MATRIX & ROUTE RESILIENCE
+console.log('\n16. FULL-SYSTEM API MATRIX & ROUTE RESILIENCE:');
+
+await asyncTest('API 1: POST /api/forecast returns 200 with deterministic predictions and dish targets', async () => {
+  const req = new NextRequest('http://localhost:3000/api/forecast', {
+    method: 'POST',
+    body: JSON.stringify({ expectedDiners: 820, serviceMeal: 'Lunch', defaultBufferPct: 3.0 }),
+  });
+  const res = await forecastPost(req);
+  assert.strictEqual(res.status, 200);
+  const data = await res.json();
+  assert.strictEqual(data.success, true);
+  assert.strictEqual(data.predictedDemand, 795);
+  assert.strictEqual(data.recommendedPreparation, 819);
+  assert.ok(Array.isArray(data.dishes) && data.dishes.length > 0);
+  assert.ok(data.forecastId);
+});
+
+await asyncTest('API 2: POST /api/forecast rejects missing or negative diners with 400 validation error', async () => {
+  const negReq = new NextRequest('http://localhost:3000/api/forecast', {
+    method: 'POST',
+    body: JSON.stringify({ expectedDiners: -50 }),
+  });
+  const resNeg = await forecastPost(negReq);
+  assert.strictEqual(resNeg.status, 400);
+  const dataNeg = await resNeg.json();
+  assert.strictEqual(dataNeg.success, false);
+  assert.ok(dataNeg.error.includes('positive integer'));
+
+  const emptyReq = new NextRequest('http://localhost:3000/api/forecast', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  const resEmpty = await forecastPost(emptyReq);
+  assert.strictEqual(resEmpty.status, 400);
+});
+
+await asyncTest('API 3: POST /api/forecast rejects malformed JSON body with 400', async () => {
+  const malformedReq = new NextRequest('http://localhost:3000/api/forecast', {
+    method: 'POST',
+    body: '{"expectedDiners": invalid}',
+  });
+  const res = await forecastPost(malformedReq);
+  assert.strictEqual(res.status, 400);
+  const data = await res.json();
+  assert.strictEqual(data.success, false);
+  assert.ok(data.error.includes('Malformed or missing JSON'));
+});
+
+await asyncTest('API 4: POST /api/consumption returns 200 with surplus balance (+34 kg) and safety flag', async () => {
+  const req = new NextRequest('http://localhost:3000/api/consumption', {
+    method: 'POST',
+    body: JSON.stringify({ preparedQuantity: 819, servedQuantity: 785 }),
+  });
+  const res = await consumptionPost(req);
+  assert.strictEqual(res.status, 200);
+  const data = await res.json();
+  assert.strictEqual(data.success, true);
+  assert.strictEqual(data.remainingQuantity, 34);
+  assert.strictEqual(data.isSurplus, true);
+  assert.strictEqual(data.isShortage, false);
+  assert.ok(data.consumptionId);
+});
+
+await asyncTest('API 5: POST /api/consumption preserves negative deficit (-50) for kitchen shortage without zero clamping', async () => {
+  const req = new NextRequest('http://localhost:3000/api/consumption', {
+    method: 'POST',
+    body: JSON.stringify({ preparedQuantity: 750, servedQuantity: 800 }),
+  });
+  const res = await consumptionPost(req);
+  assert.strictEqual(res.status, 200);
+  const data = await res.json();
+  assert.strictEqual(data.success, true);
+  assert.strictEqual(data.remainingQuantity, -50);
+  assert.strictEqual(data.isShortage, true);
+  assert.strictEqual(data.isSurplus, false);
+});
+
+await asyncTest('API 6: POST /api/consumption rejects malformed or negative inputs with 400', async () => {
+  const negReq = new NextRequest('http://localhost:3000/api/consumption', {
+    method: 'POST',
+    body: JSON.stringify({ preparedQuantity: -10, servedQuantity: 100 }),
+  });
+  const resNeg = await consumptionPost(negReq);
+  assert.strictEqual(resNeg.status, 400);
+
+  const malformedReq = new NextRequest('http://localhost:3000/api/consumption', {
+    method: 'POST',
+    body: '{"preparedQuantity": }',
+  });
+  const resMalformed = await consumptionPost(malformedReq);
+  assert.strictEqual(resMalformed.status, 400);
+});
+
+await asyncTest('API 7: GET /api/forecast and GET /api/consumption return 200 with valid cached state', async () => {
+  const resForecast = await forecastGet();
+  assert.strictEqual(resForecast.status, 200);
+  const dataForecast = await resForecast.json();
+  assert.strictEqual(dataForecast.success, true);
+  assert.ok(dataForecast.forecast);
+
+  const resConsumption = await consumptionGet();
+  assert.strictEqual(resConsumption.status, 200);
+  const dataConsumption = await resConsumption.json();
+  assert.strictEqual(dataConsumption.success, true);
+});
+
+await asyncTest('API 8: POST /api/ai validates prompt requirements and rejects empty requests with 400', async () => {
+  const emptyReq = new NextRequest('http://localhost:3000/api/ai', {
+    method: 'POST',
+    body: JSON.stringify({ prompt: '' }),
+  });
+  const resEmpty = await aiPost(emptyReq);
+  assert.strictEqual(resEmpty.status, 400);
+  const dataEmpty = await resEmpty.json();
+  assert.strictEqual(dataEmpty.success, false);
+
+  const missingReq = new NextRequest('http://localhost:3000/api/ai', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  const resMissing = await aiPost(missingReq);
+  assert.strictEqual(resMissing.status, 400);
 });
 
 // SUMMARY

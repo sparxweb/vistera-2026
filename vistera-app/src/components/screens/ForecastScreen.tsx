@@ -482,8 +482,8 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
       {/* EXPLAINABLE CALCULATION MODAL */}
       {/* ============================================================== */}
       {showCalcModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl border border-[#E6E4DC] max-w-xl w-full p-6 sm:p-7 shadow-2xl relative max-h-[90vh] overflow-y-auto space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-2.5 sm:p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl border border-[#E6E4DC] max-w-xl w-full p-4 sm:p-6 md:p-7 shadow-2xl relative max-h-[92vh] overflow-y-auto space-y-5">
             <div className="flex items-start justify-between pb-3 border-b border-[#F0EFEB]">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-[#EAF4EE] text-[#1B4D36]">

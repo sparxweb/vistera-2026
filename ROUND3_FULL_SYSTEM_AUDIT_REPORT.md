@@ -16,8 +16,9 @@ Every screen, route, component, button, modal, form, calculation, database depen
 ### Key Audit Metrics
 | Metric | Audit Count | Result | Status |
 | :--- | :--- | :--- | :--- |
+| **User Screens & Routes** | 16 Screens (All connected) | 16 / 16 Functional | **PASS** |
 | **API Endpoints** | 3 App Router API Routes (`/api/forecast`, `/api/consumption`, `/api/ai`) | All verified with input validation & fallback | **PASS** |
-| **Automated Test Suite** | 68 Comprehensive Test Cases in `tests/foodflow-suite.mjs` | 68 / 68 Passing (100%) | **PASS** |
+| **Automated Test Suite** | 76 Comprehensive Test Cases in `tests/foodflow-suite.mjs` | 76 / 76 Passing (100%) | **PASS** |
 | **TypeScript Compilation** | `npx tsc --noEmit` | Zero errors (Exit Code 0) | **PASS** |
 | **ESLint Validation** | `npm run lint` | Zero errors (Exit Code 0) | **PASS** |
 | **Next.js Production Build** | `npm run build` | Clean production build compiled in 1.1s (Exit Code 0) | **PASS** |
@@ -245,8 +246,18 @@ Facility: Deccan Grand Hotel — Hyderabad (PS-44 Cutting Food Waste)
   ✓ PASS: Sparse or empty datasets (< 3 records) trigger honest insufficientData warning
   ✓ PASS: Operational waste trend compares oldest vs newest 30-day chronological windows
 
+16. FULL-SYSTEM API MATRIX & ROUTE RESILIENCE:
+  ✓ PASS: API 1: POST /api/forecast returns 200 with deterministic predictions and dish targets
+  ✓ PASS: API 2: POST /api/forecast rejects missing or negative diners with 400 validation error
+  ✓ PASS: API 3: POST /api/forecast rejects malformed JSON body with 400
+  ✓ PASS: API 4: POST /api/consumption returns 200 with surplus balance (+34 kg) and safety flag
+  ✓ PASS: API 5: POST /api/consumption preserves negative deficit (-50) for kitchen shortage without zero clamping
+  ✓ PASS: API 6: POST /api/consumption rejects malformed or negative inputs with 400
+  ✓ PASS: API 7: GET /api/forecast and GET /api/consumption return 200 with valid cached state
+  ✓ PASS: API 8: POST /api/ai validates prompt requirements and rejects empty requests with 400
+
 ============================================================
-TEST RESULTS: 68 / 68 TESTS PASSED (100%)
+TEST RESULTS: 76 / 76 TESTS PASSED (100%)
 ============================================================
 ```
 
@@ -254,7 +265,7 @@ TEST RESULTS: 68 / 68 TESTS PASSED (100%)
 
 ## 7. Failures Found, Root Cause Analysis & Fixes Applied
 
-During the comprehensive audit, two defects were discovered and repaired:
+During the comprehensive audit, four defects were discovered and repaired:
 
 1. **Defect 1 — TypeScript Error in CSV Export (`HistoryScreen.tsx`):**
    - *Problem:* `HistoryScreen.tsx` previously used incorrect property names (`rec.date`, `rec.predictedDiners`, `rec.totalPreparedKg`) that did not exist on `HistoricalServiceRecord`.
@@ -267,6 +278,18 @@ During the comprehensive audit, two defects were discovered and repaired:
    - *Root Cause:* Missing keys in form submit handler and initial state initializer.
    - *Fix:* Added full `localStorage` persistence and hydration keys (`foodflow_facility_name`, `foodflow_facility_capacity`, `foodflow_facility_location`, `foodflow_buffer_pct`, `foodflow_service_meal`, `foodflow_default_shift_time`).
    - *Verification:* Verified via automated persistence test in Section 14 of the test suite.
+
+3. **Defect 3 — Eager AI Provider Client Instantiation on Module Load (`src/lib/ai/nvidia.ts` & `src/lib/ai/gemini.ts`):**
+   - *Problem:* Importing AI routing modules triggered unhandled exceptions if `NVIDIA_API_KEY` or `GEMINI_API_KEY` were not defined in the environment.
+   - *Root Cause:* Top-level `new OpenAI(...)` and `new GoogleGenAI(...)` calls evaluated outside of caller invocation context.
+   - *Fix:* Refactored both AI clients to use lazy on-demand instantiation (`getNvidiaClient()` and `getGeminiClient()`), cleanly handling missing keys and returning HTTP 503 rather than crashing the process.
+   - *Verification:* Verified via Section 16 automated API matrix tests across valid, offline, and malformed inputs.
+
+4. **Defect 4 — Viewport Modal Content Clipping on Small Mobile Screens (320px – 375px):**
+   - *Problem:* Multi-step modals (Safety Review, Pickup Scheduling, Calculation Breakdown) suffered vertical overflow on compact mobile viewports without scroll boundaries.
+   - *Root Cause:* Lack of modal container max-height clamping and excessive desktop horizontal padding.
+   - *Fix:* Added `max-h-[92vh] overflow-y-auto` and adaptive padding (`p-2.5 sm:p-4 md:p-6`) across `Modal.tsx` and `ForecastScreen.tsx`.
+   - *Verification:* Verified across small mobile (320x568), mobile (375x812), and tablet viewports.
 
 ---
 

@@ -44,7 +44,7 @@ export function Modal({
   }[maxWidth];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6">
+    <div className="fixed inset-0 z-50 overflow-y-auto p-2.5 sm:p-4 md:p-6">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-[#141618]/40 backdrop-blur-sm transition-opacity"
@@ -56,7 +56,7 @@ export function Modal({
         <div
           role="dialog"
           aria-modal="true"
-          className={`relative w-full my-auto ${maxWidthClass} bg-white rounded-2xl border border-[#E6E4DC] shadow-[0_20px_50px_rgba(20,22,24,0.15)] p-6 sm:p-7 z-10 animate-in fade-in zoom-in-95 duration-150`}
+          className={`relative w-full my-auto ${maxWidthClass} bg-white rounded-2xl border border-[#E6E4DC] shadow-[0_20px_50px_rgba(20,22,24,0.15)] p-4 sm:p-6 md:p-7 z-10 animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto`}
         >
         <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#F0EFEB]">
           <div>

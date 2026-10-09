@@ -1,15 +1,27 @@
 import { GoogleGenAI } from "@google/genai";
 import { cleanRawAIResponse } from "./cleaner";
 
-const gemini = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-    httpOptions: {
-        timeout: 25000,
-    },
-});
+let geminiClient: GoogleGenAI | null = null;
+
+function getGeminiClient(): GoogleGenAI {
+    if (!geminiClient) {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            throw new Error("GEMINI_API_KEY is not configured.");
+        }
+        geminiClient = new GoogleGenAI({
+            apiKey,
+            httpOptions: {
+                timeout: 25000,
+            },
+        });
+    }
+    return geminiClient;
+}
 
 export async function askGemini(prompt: string): Promise<string> {
-    const response = await gemini.models.generateContent({
+    const client = getGeminiClient();
+    const response = await client.models.generateContent({
         model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
         contents: prompt,
         config: {

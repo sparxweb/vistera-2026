@@ -1,12 +1,24 @@
 import OpenAI from "openai";
 
-const nvidia = new OpenAI({
-    apiKey: process.env.NVIDIA_API_KEY,
-    baseURL: "https://integrate.api.nvidia.com/v1",
-});
+let nvidiaClient: OpenAI | null = null;
+
+function getNvidiaClient(): OpenAI {
+    if (!nvidiaClient) {
+        const apiKey = process.env.NVIDIA_API_KEY;
+        if (!apiKey) {
+            throw new Error("NVIDIA_API_KEY is not configured.");
+        }
+        nvidiaClient = new OpenAI({
+            apiKey,
+            baseURL: "https://integrate.api.nvidia.com/v1",
+        });
+    }
+    return nvidiaClient;
+}
 
 export async function askNvidia(prompt: string): Promise<string> {
-    const response = await nvidia.chat.completions.create({
+    const client = getNvidiaClient();
+    const response = await client.chat.completions.create({
         model: "nvidia/nemotron-3.5-lightning-30b-a3b",
         messages: [
             {

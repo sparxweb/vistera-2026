@@ -5,8 +5,17 @@ import { askAI } from '@/lib/ai/router';
 import { parseKitchenInsights } from '@/lib/ai/cleaner';
 
 export async function POST(request: NextRequest) {
+  let body;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Malformed or missing JSON body in request.' },
+      { status: 400 }
+    );
+  }
+
+  try {
 
     const expectedDiners = Number(body?.expectedDiners);
     if (!expectedDiners || isNaN(expectedDiners) || expectedDiners <= 0) {

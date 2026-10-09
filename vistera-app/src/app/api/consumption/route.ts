@@ -3,8 +3,17 @@ import { evaluateConsumptionBalance } from '@/lib/business/balance';
 import { supabase } from '@/lib/supabase/client';
 
 export async function POST(request: NextRequest) {
+  let body;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Malformed or missing JSON body in request.' },
+      { status: 400 }
+    );
+  }
+
+  try {
 
     const preparedQuantity = Number(body?.preparedQuantity);
     const servedQuantity = Number(body?.servedQuantity);
