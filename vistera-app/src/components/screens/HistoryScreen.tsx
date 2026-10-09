@@ -4,7 +4,10 @@ import React, { useState, useMemo } from 'react';
 import { 
   History, 
   ArrowRight,
-  Download
+  Download,
+  Sparkles,
+  AlertTriangle,
+  Info
 } from 'lucide-react';
 import { ScreenId } from '@/components/layout/Header';
 import { 
@@ -15,6 +18,7 @@ import {
   HistoricalServiceRecord
 } from '@/lib/data/historicalServices';
 import { ServiceType, HistoryRecord } from '@/types/foodflow';
+import { calculateSmartWasteInsights } from '@/lib/business/wasteInsights';
 
 interface HistoryScreenProps {
   onNavigate?: (screen: ScreenId) => void;
@@ -25,7 +29,7 @@ export function HistoryScreen({ onNavigate, history = [] }: HistoryScreenProps) 
   const [selectedServiceFilter, setSelectedServiceFilter] = useState<'ALL' | ServiceType>('ALL');
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('ALL');
   const [showEventOnly, setShowEventOnly] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'validation' | 'patterns' | 'archive' | 'session'>('validation');
+  const [activeTab, setActiveTab] = useState<'validation' | 'patterns' | 'archive' | 'session' | 'insights'>('validation');
 
   // Compute Holdout Validation Metrics
   const validationMetrics = useMemo(() => {
@@ -46,6 +50,11 @@ export function HistoryScreen({ onNavigate, history = [] }: HistoryScreenProps) 
       return matchService && matchDay && matchEvent;
     });
   }, [selectedServiceFilter, selectedDayFilter, showEventOnly]);
+
+  // Compute Smart Waste Insights & Prevention Alerts
+  const wasteInsights = useMemo(() => {
+    return calculateSmartWasteInsights(filteredRecords);
+  }, [filteredRecords]);
 
   // Export CSV Handler
   const handleExportCSV = () => {
@@ -122,7 +131,26 @@ export function HistoryScreen({ onNavigate, history = [] }: HistoryScreenProps) 
         </div>
 
         {/* SECTION NAV TABS */}
-        <div className="flex items-center gap-2 pt-5">
+        <div className="flex flex-wrap items-center gap-2 pt-5">
+          <button
+            type="button"
+            onClick={() => setActiveTab('insights')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'insights'
+                ? 'bg-[#1B4D36] text-white shadow-xs'
+                : 'bg-[#FAF9F5] text-[#585E68] hover:bg-[#F0EFEB] border border-[#E6E4DC]'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>Smart Waste Insights &amp; Alerts</span>
+            {wasteInsights.activeAlerts.length > 0 && (
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === 'insights' ? 'bg-amber-400 text-black' : 'bg-amber-100 text-amber-900 border border-amber-200'
+              }`}>
+                {wasteInsights.activeAlerts.length}
+              </span>
+            )}
+          </button>
           <button
             type="button"
             onClick={() => setActiveTab('validation')}
@@ -176,6 +204,280 @@ export function HistoryScreen({ onNavigate, history = [] }: HistoryScreenProps) 
           </button>
         </div>
       </div>
+
+      {/* 01. TAB: SMART WASTE INSIGHTS & PREVENTION ALERTS */}
+      {activeTab === 'insights' && (
+        <div className="space-y-6">
+          {wasteInsights.insufficientData ? (
+            /* Insufficient Data Guard */
+            <div className="bg-white rounded-3xl border border-[#E6E4DC] p-8 shadow-xs text-center space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-800 border border-amber-200 flex items-center justify-center mx-auto">
+                <Info className="w-6 h-6" />
+              </div>
+              <div className="max-w-md mx-auto space-y-2">
+                <h3 className="text-base font-extrabold text-[#141618]">
+                  Insufficient Operational Records for Pattern Detection
+                </h3>
+                <p className="text-xs text-[#585E68] leading-relaxed">
+                  {wasteInsights.explanation}
+                </p>
+                <div className="p-3 bg-[#FAF9F5] rounded-xl border border-[#E6E4DC] text-[11px] text-[#737A87]">
+                  To protect operational integrity, FOODFLOW calculates insights strictly from genuine recorded service outcomes. Record at least 3 completed shifts to activate this engine.
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Header Context Banner */}
+              <div className="bg-white rounded-3xl border border-[#E6E4DC] p-6 sm:p-7 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#F0EFEB]">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-mono font-bold text-[#1B4D36] uppercase tracking-wider bg-[#EAF4EE] px-2.5 py-0.5 rounded-full border border-[#D0E7DA]">
+                        DETERMINISTIC OPERATIONAL AUDIT • PS-44 CUTTING FOOD WASTE
+                      </span>
+                      {wasteInsights.dateRangeCovered && (
+                        <span className="text-[11px] text-[#737A87]">
+                          Archive: <strong>{wasteInsights.dateRangeCovered}</strong>
+                        </span>
+                      )}
+                    </div>
+                    <h2 className="text-xl font-extrabold text-[#141618]">
+                      Smart Waste Insights &amp; Prevention Alerts
+                    </h2>
+                    <p className="text-xs text-[#585E68] mt-0.5">
+                      Analyzes {wasteInsights.recordsAnalyzed} operational shifts to isolate recurring dish surplus, prevent stockouts, and recommend precise per-diner prep adjustments.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
+                      {wasteInsights.dishPatterns.length} Menu Items Audited
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4 Core KPI Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="p-4 rounded-2xl bg-[#FAF9F5] border border-[#E6E4DC]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#737A87] block">
+                      Total Production Flow
+                    </span>
+                    <div className="text-xl sm:text-2xl font-extrabold text-[#141618] mt-1">
+                      {wasteInsights.totalRecordedPrepared.toFixed(1)} <span className="text-xs font-normal text-[#737A87]">kg</span>
+                    </div>
+                    <span className="text-[11px] text-[#1B4D36] font-semibold mt-0.5 block">
+                      {wasteInsights.totalRecordedServed.toFixed(1)} kg consumed
+                    </span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#FEF9F0] border border-[#F8E0B5]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#C6682F] block">
+                      Recorded Surplus Volume
+                    </span>
+                    <div className="text-xl sm:text-2xl font-extrabold text-[#C6682F] mt-1">
+                      {wasteInsights.totalRecordedSurplus.toFixed(1)} <span className="text-xs font-normal text-[#C6682F]">kg</span>
+                    </div>
+                    <span className="text-[11px] text-[#C6682F] font-semibold mt-0.5 block">
+                      {wasteInsights.overallSurplusRatePct}% overall surplus rate
+                    </span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#FAF9F5] border border-[#E6E4DC]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#737A87] block">
+                      Top Surplus Item
+                    </span>
+                    <div className="text-base sm:text-lg font-extrabold text-[#141618] mt-1 truncate" title={wasteInsights.topSurplusDishes[0]?.dishName}>
+                      {wasteInsights.topSurplusDishes[0]?.dishName || 'None'}
+                    </div>
+                    <span className="text-[11px] text-[#737A87] mt-0.5 block">
+                      {wasteInsights.topSurplusDishes[0] ? `${wasteInsights.topSurplusDishes[0].avgSurplusPerShift} ${wasteInsights.topSurplusDishes[0].unit}/shift avg` : '—'}
+                    </span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#FAF9F5] border border-[#E6E4DC]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#737A87] block">
+                      30-Day Operational Trend
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className={`text-base sm:text-lg font-extrabold ${
+                        wasteInsights.historicalTrend?.status === 'IMPROVING'
+                          ? 'text-emerald-700'
+                          : wasteInsights.historicalTrend?.status === 'WORSENING'
+                          ? 'text-rose-700'
+                          : 'text-[#141618]'
+                      }`}>
+                        {wasteInsights.historicalTrend?.status || 'STABLE'}
+                      </span>
+                      {wasteInsights.historicalTrend && (
+                        <span className="text-xs font-mono font-bold text-[#737A87]">
+                          ({wasteInsights.historicalTrend.changePct > 0 ? '+' : ''}{wasteInsights.historicalTrend.changePct}%)
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-[#737A87] mt-0.5 block truncate" title={wasteInsights.historicalTrend?.description}>
+                      {wasteInsights.historicalTrend?.status === 'IMPROVING' ? 'Surplus trending downward' : 'Operational baseline steady'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Prevention Alerts */}
+              <div className="bg-white rounded-3xl border border-[#E6E4DC] p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[#F0EFEB]">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    <h3 className="text-sm font-extrabold text-[#141618]">
+                      Active Prevention Alerts ({wasteInsights.activeAlerts.length})
+                    </h3>
+                  </div>
+                  <span className="text-[11px] text-[#737A87]">
+                    Generated strictly from observed shift variance
+                  </span>
+                </div>
+
+                {wasteInsights.activeAlerts.length === 0 ? (
+                  <div className="p-6 rounded-2xl bg-[#EAF4EE] border border-[#D0E7DA] text-center text-xs text-[#1B4D36] font-semibold">
+                    No chronic surplus or shortage anomalies detected across currently filtered records. All dish preparation indices are operating within healthy safety margins.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {wasteInsights.activeAlerts.map((alert) => (
+                      <div
+                        key={alert.id}
+                        className={`p-5 rounded-2xl border flex flex-col justify-between space-y-3 transition-all ${
+                          alert.severity === 'HIGH'
+                            ? 'bg-rose-50/60 border-rose-200'
+                            : alert.severity === 'MEDIUM'
+                            ? 'bg-amber-50/60 border-amber-200'
+                            : 'bg-[#FAF9F5] border-[#E6E4DC]'
+                        }`}
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-[10px] font-mono font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                              alert.severity === 'HIGH'
+                                ? 'bg-rose-200/80 text-rose-900'
+                                : alert.severity === 'MEDIUM'
+                                ? 'bg-amber-200/80 text-amber-900'
+                                : 'bg-[#EAF4EE] text-[#1B4D36]'
+                            }`}>
+                              {alert.severity} PRIORITY ALERT
+                            </span>
+                            <span className="text-[11px] font-mono font-bold text-[#585E68]">
+                              {alert.metric}
+                            </span>
+                          </div>
+                          <h4 className="text-sm font-bold text-[#141618]">
+                            {alert.title}
+                          </h4>
+                          <div className="text-xs text-[#585E68] leading-relaxed pt-1">
+                            <strong className="text-[#141618]">Why this alert appears: </strong>
+                            {alert.reason}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-black/5">
+                          <div className="text-xs bg-white/80 p-2.5 rounded-xl border border-black/5 text-[#141618] leading-relaxed">
+                            <span className="font-bold text-[#1B4D36]">Recommended Action: </span>
+                            {alert.action}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Dish Consumption & Surplus Pattern Table */}
+              <div className="bg-white rounded-3xl border border-[#E6E4DC] overflow-hidden shadow-xs space-y-4 p-5 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#F0EFEB]">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-[#141618]">
+                      Dish-by-Dish Consumption Patterns &amp; Prep Recommendations
+                    </h3>
+                    <p className="text-xs text-[#737A87] mt-0.5">
+                      Empirical consumption tracking across institutional menu items. Highlights surplus rates and suggested prep adjustments.
+                    </p>
+                  </div>
+                  <div className="text-[10px] font-mono text-[#1B4D36] bg-[#EAF4EE] px-2.5 py-1 rounded-full border border-[#D0E7DA] font-bold self-start sm:self-auto">
+                    DATA-DRIVEN PREPARATION TUNING
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-[#FAF9F5] border-b border-[#E6E4DC] text-[#737A87] font-semibold text-[11px]">
+                        <th className="py-2.5 px-3">Menu Item</th>
+                        <th className="py-2.5 px-2">Category</th>
+                        <th className="py-2.5 px-2">Unit</th>
+                        <th className="py-2.5 px-3 text-right">Shifts</th>
+                        <th className="py-2.5 px-3 text-right">Avg Prep</th>
+                        <th className="py-2.5 px-3 text-right">Avg Served</th>
+                        <th className="py-2.5 px-3 text-right">Avg Surplus</th>
+                        <th className="py-2.5 px-3 text-right">Surplus Rate</th>
+                        <th className="py-2.5 px-3 text-right">Surplus Freq</th>
+                        <th className="py-2.5 px-3 text-right">Shortage Risk</th>
+                        <th className="py-2.5 px-4">Actionable Recommendation</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#F0EFEB]">
+                      {wasteInsights.dishPatterns.map((dish) => (
+                        <tr key={dish.dishName} className="hover:bg-[#FAF9F5]">
+                          <td className="py-2.5 px-3 font-bold text-[#141618] whitespace-nowrap">
+                            {dish.dishName}
+                          </td>
+                          <td className="py-2.5 px-2 text-[#585E68] whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-md bg-[#FAF9F5] border border-[#E6E4DC] text-[10px] font-medium">
+                              {dish.category}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-2 font-mono text-[#737A87]">{dish.unit}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-[#585E68]">{dish.shiftsAnalyzed}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-[#585E68]">{dish.avgPreparedPerShift.toFixed(1)}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-[#141618] font-medium">{dish.avgServedPerShift.toFixed(1)}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-[#C6682F] font-bold">
+                            {dish.avgSurplusPerShift.toFixed(1)} {dish.unit}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] ${
+                              dish.surplusRatePct >= 3.0
+                                ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                : dish.surplusRatePct >= 1.5
+                                ? 'bg-[#FEF9F0] text-[#C6682F]'
+                                : 'bg-[#EAF4EE] text-[#1B4D36]'
+                            }`}>
+                              {dish.surplusRatePct}%
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-[#585E68]">{dish.surplusFrequencyPct}%</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-[#737A87]">{dish.shortageFrequencyPct}%</td>
+                          <td className="py-2.5 px-4 text-[11px] text-[#585E68]">
+                            {dish.recommendedPerDinerAdjustment ? (
+                              <div className="space-y-1">
+                                <span className="font-bold text-[#1B4D36] block">
+                                  {dish.recommendedPerDinerAdjustment.action}
+                                </span>
+                                <span className="text-[10px] text-[#737A87] block">
+                                  {dish.recommendedPerDinerAdjustment.reason}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[#737A87] italic">
+                                Consumption matches preparation within controlled buffer.
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* 02. TAB: CHRONOLOGICAL HOLDOUT VALIDATION */}
       {activeTab === 'validation' && (

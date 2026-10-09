@@ -15,7 +15,7 @@ npm install
 # Start local Next.js development server
 npm run dev
 
-# Run full automated verification suite (62 tests)
+# Run full automated verification suite (68 tests)
 npm test
 # or: npx tsx tests/foodflow-suite.mjs
 

@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ArrowRight, 
   Building2, 
   MapPin, 
   Calendar, 
-  TrendingUp
+  TrendingUp,
+  Sparkles
 } from 'lucide-react';
 import { ForecastChart } from '@/components/ui/ForecastChart';
 import { 
@@ -15,6 +16,8 @@ import {
   INITIAL_LLM_EXPLANATION, 
   INITIAL_CONSUMPTION 
 } from '@/lib/demoData';
+import { HISTORICAL_SERVICES } from '@/lib/data/historicalServices';
+import { calculateSmartWasteInsights } from '@/lib/business/wasteInsights';
 import { ScreenId } from '@/components/layout/Header';
 import { ServiceType } from '@/types/foodflow';
 import { AIKitchenInsightsCard } from '@/components/ui/AIKitchenInsightsCard';
@@ -37,6 +40,11 @@ export function DashboardScreen({
   const currentSurplus = consumption.surplusDetected ?? Math.max(0, consumption.mealsPrepared - consumption.mealsServed);
   const isSurplus = currentSurplus > 0;
   const isShortage = consumption.mealsServed > consumption.mealsPrepared;
+
+  // Compute Smart Waste Insights & Prevention Alerts across historical shifts
+  const dashboardWasteInsights = useMemo(() => {
+    return calculateSmartWasteInsights(HISTORICAL_SERVICES);
+  }, []);
 
   // Illustrative dish tracking for today's service
   const todayDishes = [
@@ -419,6 +427,42 @@ export function DashboardScreen({
             </table>
           </div>
         </div>
+
+        {/* Smart Waste Prevention Alert Banner */}
+        {dashboardWasteInsights.activeAlerts.length > 0 && (
+          <div className="p-4 rounded-2xl bg-[#FEF9F0] border border-[#F8E0B5] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 text-amber-900 flex items-center justify-center shrink-0 mt-0.5">
+                <Sparkles className="w-4 h-4 text-amber-700" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded-full">
+                    PREVENTION ALERT
+                  </span>
+                  <span className="text-xs font-bold text-[#141618]">
+                    {dashboardWasteInsights.activeAlerts[0]?.title}
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#585E68] leading-relaxed">
+                  {dashboardWasteInsights.activeAlerts[0]?.reason}
+                </p>
+                <p className="text-[11px] font-semibold text-[#1B4D36]">
+                  Action: {dashboardWasteInsights.activeAlerts[0]?.action}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('history')}
+              className="px-3 py-1.5 bg-white border border-[#E6E4DC] hover:bg-[#FAF9F5] text-xs font-bold text-[#141618] rounded-xl transition-all cursor-pointer whitespace-nowrap shadow-2xs shrink-0 flex items-center gap-1.5"
+            >
+              <span>View All Insights ({dashboardWasteInsights.activeAlerts.length})</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Action Callout */}
         <div className="p-4 rounded-2xl bg-[#FAF9F5] border border-[#E6E4DC] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

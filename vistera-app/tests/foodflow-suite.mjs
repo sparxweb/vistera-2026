@@ -31,6 +31,7 @@ import { calculateDemandForecast } from '../src/lib/forecast/engine.ts';
 import { calculateHaversineDistance, formatStraightLineDistance } from '../src/lib/geo/distance.ts';
 import { DEMO_HOTEL, DEMO_ORGANIZATIONS, DEMO_HOTEL_USER, DEMO_NGO, INITIAL_RECOVERY_OFFERS } from '../src/lib/demoData.ts';
 import { calculateServiceBalance, calculateDishBalance, evaluateConsumptionBalance } from '../src/lib/business/balance.ts';
+import { calculateSmartWasteInsights } from '../src/lib/business/wasteInsights.ts';
 import { cleanRawAIResponse, parseKitchenInsights } from '../src/lib/ai/cleaner.ts';
 import {
   createRecoveryOffer,
@@ -847,6 +848,77 @@ test('Audit 6: All 16 application screens exist in system screen directory inven
   assert.ok(validScreens.includes('ngo_inbox'));
   assert.ok(validScreens.includes('settings'));
   assert.ok(validScreens.includes('history'));
+});
+
+// 15. SMART WASTE INSIGHTS & PREVENTION ALERTS TESTS
+console.log('\n15. SMART WASTE INSIGHTS & PREVENTION ALERTS (PS-44):');
+
+test('Insights 1: Detects recurring surplus patterns across 90-day operational shift records', () => {
+  const insights = calculateSmartWasteInsights(HISTORICAL_SERVICES);
+  assert.strictEqual(insights.insufficientData, false);
+  assert.ok(insights.recordsAnalyzed >= 90, `Expected at least 90 shifts, got ${insights.recordsAnalyzed}`);
+  assert.ok(insights.dishPatterns.length > 0, 'Must identify dish patterns');
+  assert.ok(insights.totalRecordedSurplus > 0, 'Must aggregate genuine recorded surplus');
+  assert.ok(insights.overallSurplusRatePct > 0, 'Must calculate overall surplus percentage');
+});
+
+test('Insights 2: Calculates dish-specific metrics (surplus rate, surplus freq, shortage risk)', () => {
+  const insights = calculateSmartWasteInsights(HISTORICAL_SERVICES);
+  const ricePattern = insights.dishPatterns.find(d => d.dishName.includes('Rice'));
+  assert.ok(ricePattern, 'Must analyze Rice staple pattern');
+  assert.ok(ricePattern.shiftsAnalyzed >= 20, `Expected at least 20 shifts for Rice, got ${ricePattern.shiftsAnalyzed}`);
+  assert.ok(ricePattern.avgPreparedPerShift > 0);
+  assert.ok(ricePattern.avgServedPerShift > 0);
+  assert.ok(ricePattern.surplusRatePct >= 0);
+  assert.ok(ricePattern.surplusFrequencyPct >= 0 && ricePattern.surplusFrequencyPct <= 100);
+  assert.ok(ricePattern.shortageFrequencyPct >= 0 && ricePattern.shortageFrequencyPct <= 100);
+});
+
+test('Insights 3: Generates actionable per-diner rate adjustment without changing forecast engine', () => {
+  const insights = calculateSmartWasteInsights(HISTORICAL_SERVICES);
+  const dishWithTuning = insights.dishPatterns.find(d => d.recommendedPerDinerAdjustment !== undefined);
+  assert.ok(dishWithTuning, 'At least one dish with chronic surplus must suggest prep rate tuning');
+  const tuning = dishWithTuning.recommendedPerDinerAdjustment;
+  assert.ok(tuning.currentRate > 0);
+  assert.ok(tuning.suggestedRate > 0);
+  assert.ok(tuning.suggestedRate <= tuning.currentRate, 'Suggested prep rate must be <= current rate to trim surplus');
+  assert.ok(tuning.reason.includes('shows preparation index exceeds true guest consumption'));
+  assert.ok(tuning.action.includes('Tune per-diner prep rate'));
+});
+
+test('Insights 4: Generates structured prevention alerts explaining why they appeared', () => {
+  const insights = calculateSmartWasteInsights(HISTORICAL_SERVICES);
+  assert.ok(insights.activeAlerts.length > 0, 'Must produce active prevention alerts');
+  for (const alert of insights.activeAlerts) {
+    assert.ok(alert.id.startsWith('ALERT-'));
+    assert.ok(['HIGH', 'MEDIUM', 'INFO'].includes(alert.severity));
+    assert.ok(alert.title.length > 5);
+    assert.ok(alert.metric.length > 0);
+    assert.ok(alert.reason.length > 10, 'Alert must explain why it appeared based on data');
+    assert.ok(alert.action.length > 10, 'Alert must provide actionable kitchen recommendation');
+  }
+});
+
+test('Insights 5: Returns honest insufficientData state for empty or sparse datasets without fabricating numbers', () => {
+  const emptyInsights = calculateSmartWasteInsights([]);
+  assert.strictEqual(emptyInsights.insufficientData, true);
+  assert.strictEqual(emptyInsights.recordsAnalyzed, 0);
+  assert.strictEqual(emptyInsights.minRecordsRequired, 3);
+  assert.strictEqual(emptyInsights.activeAlerts.length, 0);
+  assert.ok(emptyInsights.explanation.includes('Insufficient operational records'));
+  assert.ok(emptyInsights.explanation.includes('without statistical fabrication'));
+
+  const sparseInsights = calculateSmartWasteInsights(HISTORICAL_SERVICES.slice(0, 2));
+  assert.strictEqual(sparseInsights.insufficientData, true);
+  assert.strictEqual(sparseInsights.recordsAnalyzed, 2);
+});
+
+test('Insights 6: Evaluates chronological trend between earlier and recent operational windows', () => {
+  const insights = calculateSmartWasteInsights(HISTORICAL_SERVICES);
+  assert.ok(insights.historicalTrend !== null, 'Must calculate chronological window comparison');
+  assert.ok(['IMPROVING', 'WORSENING', 'STABLE'].includes(insights.historicalTrend.status));
+  assert.ok(typeof insights.historicalTrend.changePct === 'number');
+  assert.ok(insights.historicalTrend.description.length > 10);
 });
 
 // SUMMARY
