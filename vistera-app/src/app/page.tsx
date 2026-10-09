@@ -105,9 +105,8 @@ export default function Home() {
       setOrganizations(state.organizations);
       setHistory(state.history);
       setIsSupabaseConnected(state.isSupabaseConnected);
+      syncRecoveryData();
     });
-
-    syncRecoveryData();
 
     // Listen for custom cross-component update events
     const handleUpdateEvent = () => {

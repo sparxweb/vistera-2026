@@ -466,10 +466,10 @@ export function ForecastScreen({ onForecastGenerated, onNavigate }: ForecastScre
               {onNavigate && (
                 <button
                   type="button"
-                  onClick={() => onNavigate('consumption')}
+                  onClick={() => onNavigate('preparation')}
                   className="w-full sm:w-auto px-8 py-3 bg-[#1B4D36] hover:bg-[#16402D] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <span>Proceed to Monitor Consumption</span>
+                  <span>Proceed to Food Preparation</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               )}

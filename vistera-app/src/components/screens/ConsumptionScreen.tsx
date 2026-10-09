@@ -462,14 +462,28 @@ export function ConsumptionScreen({
           </button>
 
           {isSurplus && (
-            <button
-              type="button"
-              onClick={() => onNavigate('organizations')}
-              className="w-full sm:w-auto px-6 py-2.5 bg-[#1B4D36] hover:bg-[#16402D] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>Route Surplus to Hyderabad Recovery</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => onNavigate('organizations')}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-[#D0E7DA] bg-white text-[#1B4D36] hover:bg-[#FAF9F5] text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>View Hyderabad NGO Map</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isSaved) {
+                    handleSaveServiceOutcome();
+                  }
+                  onNavigate('recovery');
+                }}
+                className="w-full sm:w-auto px-6 py-2.5 bg-[#1B4D36] hover:bg-[#16402D] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Create Surplus Offer &amp; Safety Review</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </>
           )}
         </div>
       </div>

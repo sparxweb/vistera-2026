@@ -513,16 +513,24 @@ export function PreparationScreen({
             </span>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => {
                 alert(`Kitchen Prep Sheet for ${diners} diners (${service}) ready for kitchen dispatch printing.`);
               }}
-              className="px-3.5 py-1.5 bg-[#1B4D36] hover:bg-[#16402D] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 bg-[#EAF4EE] hover:bg-[#DDF0E3] text-[#1B4D36] border border-[#D0E7DA] text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>Print Production Ticket</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('consumption')}
+              className="px-4 py-2 bg-[#1B4D36] hover:bg-[#16402D] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>Proceed to Service Tracking</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>

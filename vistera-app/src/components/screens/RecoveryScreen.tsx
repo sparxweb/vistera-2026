@@ -246,7 +246,13 @@ export function RecoveryScreen({
           </button>
           <button
             type="button"
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              if (surplusQuantity && surplusQuantity > 0) {
+                setQuantity(surplusQuantity);
+                setServingsEquivalent(Math.max(1, Math.round(surplusQuantity * 6)));
+              }
+              setShowCreateModal(true);
+            }}
             className="py-2.5 px-4 rounded-xl bg-[#1B4D36] hover:bg-[#16402D] text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs"
           >
             <PlusCircle className="w-4 h-4" />
@@ -636,7 +642,7 @@ export function RecoveryScreen({
                 <label className="block text-[11px] font-bold text-[#141618] mb-1">Storage / Holding Method</label>
                 <select
                   value={storageCondition}
-                  onChange={(e) => setStorageCondition(e.target.value as any)}
+                  onChange={(e) => setStorageCondition(e.target.value as 'Hot-holding (≥63°C)' | 'Refrigerated (≤4°C)' | 'Ambient / Dry')}
                   className="w-full p-2.5 rounded-lg border border-[#E6E4DC] bg-white text-xs"
                 >
                   <option value="Hot-holding (≥63°C)">Hot-holding (≥63°C)</option>
@@ -801,7 +807,7 @@ export function RecoveryScreen({
               <label className="block text-[11px] font-bold text-[#141618] mb-1">Decision</label>
               <select
                 value={reviewDecision}
-                onChange={(e) => setReviewDecision(e.target.value as any)}
+                onChange={(e) => setReviewDecision(e.target.value as 'ELIGIBLE_FOR_REVIEWED_PICKUP' | 'REJECTED')}
                 className="w-full p-2.5 rounded-lg border border-[#E6E4DC] bg-white text-xs font-bold"
               >
                 <option value="ELIGIBLE_FOR_REVIEWED_PICKUP">APPROVE: ELIGIBLE_FOR_REVIEWED_PICKUP</option>
