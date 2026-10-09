@@ -7,8 +7,41 @@ import {
   HistoryRecord,
   SystemNotification,
   HotelProfile,
+  AuthUser,
+  FoodRecoveryOffer,
+  FoodRecoveryNotification,
 } from '@/types/foodflow';
 import { calculateHaversineDistance } from '@/lib/geo/distance';
+
+export const DEMO_HOTEL_USER: AuthUser = {
+  id: 'hotel-dgh-01',
+  role: 'HOTEL',
+  name: 'Deccan Grand Hotel — Hyderabad',
+  facilityId: 'DGH-HYD-01',
+  dataStatus: 'DEMO',
+  location: 'Gachibowli Corridor, Hyderabad (Service Bay Dock 2)',
+  coordinates: {
+    lat: 17.4447,
+    lng: 78.3483,
+  },
+  contactPerson: 'Chef Arvind Varma (F&B Director)',
+  contactPhone: '+91 98100 11234',
+};
+
+export const DEMO_NGO: AuthUser = {
+  id: 'ngo-hyd-demo-01',
+  role: 'NGO',
+  name: 'Hyderabad Community Food Support',
+  orgId: 'HCFS-HYD-01',
+  dataStatus: 'FICTIONAL DEMO PARTNER',
+  location: 'Community Distribution Center, Madhapur, Hyderabad',
+  coordinates: {
+    lat: 17.4483,
+    lng: 78.3915,
+  },
+  contactPerson: 'Priya Sharma (Operations Lead)',
+  contactPhone: '+91 98490 55123',
+};
 
 export const DEMO_HOTEL: HotelProfile = {
   id: 'DGH-HYD-01',
@@ -34,6 +67,135 @@ export const DEMO_HOTEL: HotelProfile = {
 };
 
 export const DEMO_KITCHEN: HotelProfile = DEMO_HOTEL;
+
+export const INITIAL_RECOVERY_OFFERS: FoodRecoveryOffer[] = [
+  {
+    id: 'FF-SURPLUS-0001',
+    hotelId: 'DGH-HYD-01',
+    hotelName: 'Deccan Grand Hotel — Hyderabad',
+    hotelLocation: 'Service Bay Dock 2, Gachibowli, Hyderabad',
+    hotelCoordinates: {
+      lat: 17.4447,
+      lng: 78.3483,
+    },
+    foodItem: 'Steamed Sona Masoori Rice & Andhra Chicken Curry',
+    dishCategory: 'Cooked Meals',
+    quantity: 5.7,
+    unit: 'kg',
+    servingsEquivalent: 34,
+    preparationDateTime: 'Today, 11:45 AM IST',
+    availableUntil: 'Today, 15:30 PM IST',
+    pickupDeadline: 'Today, 15:30 PM IST (Within 2h safe window)',
+    handlingNotes: 'Panned in thermal insulated SS carriers. Temperature logged at 67.2°C at shift wrap. Verified safe for immediate transfer.',
+    dietaryTags: ['Non-Veg / Halal Compliant', 'Nut-Free', 'High Protein'],
+    allergens: ['None'],
+    safetyReview: {
+      preparationTime: '11:45 AM IST',
+      storageCondition: 'Hot-holding (≥63°C)',
+      temperatureLoggedCelsius: 67.2,
+      temperatureVerified: true,
+      hygieneCheckPassed: true,
+      packagingFoodGrade: true,
+      responsibleStaffConfirmation: true,
+      reviewedBy: 'Chef Arvind Varma',
+      reviewerDesignation: 'Executive Chef / Food Safety Lead',
+      reviewedAt: 'Today, 14:35 PM IST',
+      decision: 'ELIGIBLE_FOR_REVIEWED_PICKUP',
+      safetyNotes: 'Temperature consistently logged >63°C. Stored in sanitized food-grade stainless carriers.',
+      policyNotes: 'Validated against internal kitchen SOPs: Hot-holding minimum 63°C and within 2-hour transfer protocol.',
+    },
+    status: 'OFFERED',
+    timeline: [
+      {
+        stage: 'OFFERED',
+        label: 'Offer Created',
+        actor: 'Chef Arvind Varma (Hotel)',
+        timestamp: '14:30 PM IST',
+        details: 'Initial surplus listing created from lunch shift balance (5.7 kg / 34 servings).',
+      },
+      {
+        stage: 'SAFETY_APPROVED',
+        label: 'Safety Review Approved',
+        actor: 'Chef Arvind Varma (Hotel)',
+        timestamp: '14:35 PM IST',
+        details: 'Verified hot-hold temp 67.2°C. Approved as eligible for reviewed pickup.',
+      },
+    ],
+    createdAt: '2026-10-09T09:00:00Z',
+    updatedAt: '2026-10-09T09:05:00Z',
+  },
+  {
+    id: 'FF-SURPLUS-0002',
+    hotelId: 'DGH-HYD-01',
+    hotelName: 'Deccan Grand Hotel — Hyderabad',
+    hotelLocation: 'Service Bay Dock 2, Gachibowli, Hyderabad',
+    hotelCoordinates: {
+      lat: 17.4447,
+      lng: 78.3483,
+    },
+    foodItem: 'Tomato Dal / Dal Tadka & Fresh Curd',
+    dishCategory: 'Dal & Dairy',
+    quantity: 4.5,
+    unit: 'L',
+    servingsEquivalent: 22,
+    preparationDateTime: 'Today, 12:15 PM IST',
+    availableUntil: 'Today, 16:00 PM IST',
+    pickupDeadline: 'Today, 16:00 PM IST',
+    handlingNotes: 'Dal in Bain-marie container (64.0°C). Curd held chilled (3.8°C) in separate insulated cooler.',
+    dietaryTags: ['Vegetarian', 'Gluten-Free', 'High Protein'],
+    allergens: ['Milk / Dairy (Curd)'],
+    safetyReview: {
+      preparationTime: '12:15 PM IST',
+      storageCondition: 'Hot-holding (≥63°C)',
+      temperatureLoggedCelsius: 64.0,
+      temperatureVerified: false,
+      hygieneCheckPassed: false,
+      packagingFoodGrade: true,
+      responsibleStaffConfirmation: false,
+      reviewedBy: 'Pending Staff Verification',
+      reviewerDesignation: 'Shift Duty Supervisor',
+      reviewedAt: 'Awaiting Review',
+      decision: 'PENDING_REVIEW',
+      safetyNotes: 'Awaiting secondary temperature check after counter closure.',
+      policyNotes: 'Pending hotel supervisor review against temperature and hygiene checklist.',
+    },
+    status: 'OFFERED',
+    timeline: [
+      {
+        stage: 'OFFERED',
+        label: 'Offer Created',
+        actor: 'Kitchen Staff (Hotel)',
+        timestamp: '14:45 PM IST',
+        details: 'Logged surplus from secondary batch. Pending mandatory food-safety gate.',
+      },
+    ],
+    createdAt: '2026-10-09T09:15:00Z',
+    updatedAt: '2026-10-09T09:15:00Z',
+  },
+];
+
+export const INITIAL_RECOVERY_NOTIFICATIONS: FoodRecoveryNotification[] = [
+  {
+    id: 'notif-demo-01',
+    targetRole: 'ALL',
+    offerId: 'FF-SURPLUS-0001',
+    title: 'Surplus Recovery Offer Published',
+    message: 'Offer FF-SURPLUS-0001 (34 servings) is approved and available in Hyderabad Recovery Grid.',
+    timestamp: '14:35 PM IST',
+    read: false,
+    type: 'SUCCESS',
+  },
+  {
+    id: 'notif-demo-02',
+    targetRole: 'HOTEL',
+    offerId: 'FF-SURPLUS-0002',
+    title: 'Safety Review Pending',
+    message: 'Offer FF-SURPLUS-0002 requires authorized staff safety review before publication.',
+    timestamp: '14:45 PM IST',
+    read: false,
+    type: 'WARNING',
+  },
+];
 
 
 export const INITIAL_NUMERICAL_FORECAST: NumericalForecast = {

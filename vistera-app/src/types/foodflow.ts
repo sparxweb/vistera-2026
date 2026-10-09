@@ -125,6 +125,150 @@ export interface ConsumptionRecord {
   aiRecommendation: string;
 }
 
+export type ScreenId =
+  | 'overview'
+  | 'login'
+  | 'dashboard'
+  | 'forecast'
+  | 'preparation'
+  | 'consumption'
+  | 'analysis'
+  | 'recovery'
+  | 'organizations'
+  | 'history'
+  | 'architecture'
+  | 'settings'
+  | 'ngo_inbox'
+  | 'ngo_pickups'
+  | 'ngo_history'
+  | 'notifications';
+
+export type UserRole = 'HOTEL' | 'NGO';
+
+export interface AuthUser {
+  role: UserRole;
+  id: string;
+  name: string;
+  facilityId?: string;
+  orgId?: string;
+  dataStatus: 'DEMO' | 'FICTIONAL DEMO PARTNER';
+  location: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+  contactPerson?: string;
+  contactPhone?: string;
+}
+
+export type SafetyReviewStatus = 
+  | 'PENDING_REVIEW'
+  | 'ELIGIBLE_FOR_REVIEWED_PICKUP'
+  | 'REJECTED'
+  | 'EXPIRED';
+
+export type OfferPickupStatus = 
+  | 'OFFERED'
+  | 'ACCEPTED'
+  | 'PICKUP_SCHEDULED'
+  | 'PICKED_UP'
+  | 'COMPLETED'
+  | 'DECLINED'
+  | 'EXPIRED'
+  | 'CANCELLED';
+
+export interface FoodSafetyReview {
+  preparationTime: string;
+  storageCondition: 'Hot-holding (≥63°C)' | 'Refrigerated (≤4°C)' | 'Ambient / Dry';
+  temperatureLoggedCelsius?: number;
+  temperatureVerified: boolean;
+  hygieneCheckPassed: boolean;
+  packagingFoodGrade: boolean;
+  responsibleStaffConfirmation: boolean;
+  reviewedBy: string;
+  reviewerDesignation: string;
+  reviewedAt: string;
+  decision: SafetyReviewStatus;
+  rejectionReason?: string;
+  safetyNotes?: string;
+  policyNotes?: string;
+}
+
+export interface OfferTimelineEvent {
+  stage: OfferPickupStatus | 'SAFETY_APPROVED' | 'SAFETY_REJECTED';
+  label: string;
+  actor: string;
+  timestamp: string;
+  details?: string;
+}
+
+export interface FoodRecoveryOffer {
+  id: string; // e.g. "FF-SURPLUS-0001"
+  hotelId: string;
+  hotelName: string;
+  hotelLocation: string;
+  hotelCoordinates: {
+    lat: number;
+    lng: number;
+  };
+  
+  foodItem: string;
+  dishCategory: string;
+  quantity: number;
+  unit: FoodUnit;
+  servingsEquivalent: number;
+  
+  preparationDateTime: string;
+  availableUntil: string;
+  pickupDeadline: string;
+  handlingNotes?: string;
+  dietaryTags?: string[];
+  allergens?: string[];
+  
+  // Safety Review Gate
+  safetyReview: FoodSafetyReview;
+  
+  // Workflow Status
+  status: OfferPickupStatus;
+  
+  // NGO Acceptance / Decline details
+  acceptedByOrgId?: string;
+  acceptedByOrgName?: string;
+  acceptedAt?: string;
+  declineReason?: string;
+  declinedAt?: string;
+  
+  // Pickup Details
+  pickupDetails?: {
+    scheduledDateTime?: string;
+    vehicleType?: string;
+    driverContact?: string;
+    temperatureAtPickupCelsius?: number;
+    handoverConfirmedByHotel?: boolean;
+    handoverTimestamp?: string;
+    receivedConfirmedByNgo?: boolean;
+    completionTimestamp?: string;
+    notes?: string;
+  };
+  
+  // Activity Timeline
+  timeline: OfferTimelineEvent[];
+  
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FoodRecoveryNotification {
+  id: string;
+  targetRole: 'HOTEL' | 'NGO' | 'ALL';
+  offerId: string;
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+  type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ALERT';
+}
+
 export type SurplusListingStatus = 
   | 'listed'
   | 'organization_viewed'

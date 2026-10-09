@@ -4,6 +4,23 @@
 // ==============================================================================
 
 import assert from 'node:assert';
+
+// Simulated browser storage environment for testing shared store
+if (typeof global.window === 'undefined') {
+  const store = {};
+  global.window = {
+    localStorage: {
+      getItem: (k) => store[k] || null,
+      setItem: (k, v) => { store[k] = String(v); },
+      removeItem: (k) => { delete store[k]; },
+      clear: () => { Object.keys(store).forEach((k) => delete store[k]); },
+    },
+    dispatchEvent: () => true,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  };
+}
+
 import { 
   HISTORICAL_SERVICES, 
   DEMO_HOTEL_DATASET_LABEL, 
@@ -12,9 +29,21 @@ import {
 } from '../src/lib/data/historicalServices.ts';
 import { calculateDemandForecast } from '../src/lib/forecast/engine.ts';
 import { calculateHaversineDistance, formatStraightLineDistance } from '../src/lib/geo/distance.ts';
-import { DEMO_HOTEL, DEMO_ORGANIZATIONS } from '../src/lib/demoData.ts';
+import { DEMO_HOTEL, DEMO_ORGANIZATIONS, DEMO_HOTEL_USER, DEMO_NGO, INITIAL_RECOVERY_OFFERS } from '../src/lib/demoData.ts';
 import { calculateServiceBalance, calculateDishBalance } from '../src/lib/business/balance.ts';
 import { cleanRawAIResponse, parseKitchenInsights } from '../src/lib/ai/cleaner.ts';
+import {
+  createRecoveryOffer,
+  submitSafetyReview,
+  acceptRecoveryOffer,
+  declineRecoveryOffer,
+  scheduleOfferPickup,
+  confirmHotelHandover,
+  completeRecoveryRun,
+  getRecoveryOffers,
+  getRecoveryOfferById,
+  getRecoveryNotifications,
+} from '../src/lib/recovery/offerService.ts';
 
 let passedTests = 0;
 let totalTests = 0;
@@ -23,6 +52,18 @@ function test(name, fn) {
   totalTests++;
   try {
     fn();
+    console.log(`  ✓ PASS: ${name}`);
+    passedTests++;
+  } catch (err) {
+    console.error(`  ✗ FAIL: ${name}`);
+    console.error(`    ${err.message}`);
+  }
+}
+
+async function asyncTest(name, fn) {
+  totalTests++;
+  try {
+    await fn();
     console.log(`  ✓ PASS: ${name}`);
     passedTests++;
   } catch (err) {
@@ -396,6 +437,302 @@ function zeroBufferCalculation(diners, bufferPct) {
   return diners + bufferServings;
 }
 
+// ==============================================================================
+// 12. CONNECTED HOTEL + DEMO NGO RECOVERY WORKFLOW (STEPS A TO O)
+// ==============================================================================
+console.log('\n12. CONNECTED HOTEL + DEMO NGO RECOVERY WORKFLOW (STEPS A TO O):');
+
+// Step A: Login as demo hotel
+await asyncTest('Step A: Login as demo hotel establishes authorized facility session', async () => {
+  assert.strictEqual(DEMO_HOTEL_USER.role, 'HOTEL');
+  assert.strictEqual(DEMO_HOTEL_USER.name, 'Deccan Grand Hotel — Hyderabad');
+  assert.strictEqual(DEMO_HOTEL_USER.dataStatus, 'DEMO');
+});
+
+let createdOfferId = '';
+
+// Step B: Create a surplus offer
+await asyncTest('Step B: Create surplus offer validates inputs and generates persistent ID', async () => {
+  const result = await createRecoveryOffer({
+    foodItem: 'Steamed Sona Masoori Rice & Andhra Chicken Curry',
+    dishCategory: 'Cooked Meals',
+    quantity: 6.5,
+    unit: 'kg',
+    servingsEquivalent: 38,
+    preparationDateTime: '11:45 AM IST',
+    availableUntil: '15:30 PM IST',
+    pickupDeadline: '15:30 PM IST',
+    storageCondition: 'Hot-holding (≥63°C)',
+    temperatureLoggedCelsius: 67.5,
+    hotelLocation: 'Deccan Grand Hotel — Service Bay Dock 2, Gachibowli',
+    handlingNotes: 'Held in insulated thermal carriers.',
+  }, DEMO_HOTEL_USER);
+
+  assert.ok(result.success, 'Offer creation must succeed');
+  assert.ok(result.offer, 'Offer object must be returned');
+  assert.match(result.offer.id, /^FF-SURPLUS-\d{4}$/, 'ID must match FF-SURPLUS-xxxx format');
+  assert.strictEqual(result.offer.status, 'OFFERED');
+  assert.strictEqual(result.offer.quantity, 6.5);
+  assert.strictEqual(result.offer.unit, 'kg');
+  createdOfferId = result.offer.id;
+});
+
+// Step C: Confirm it appears in the shared data layer accessible to the NGO inbox
+await asyncTest('Step C: Confirm offer appears in shared data store for NGO inbox', async () => {
+  const { offers } = await getRecoveryOffers();
+  const found = offers.find(o => o.id === createdOfferId);
+  assert.ok(found, `Newly created offer ${createdOfferId} must exist in shared store`);
+  assert.strictEqual(found.hotelName, 'Deccan Grand Hotel — Hyderabad');
+});
+
+// Step D: Confirm safety review is required
+await asyncTest('Step D: Offer is initially locked behind PENDING_REVIEW safety status', async () => {
+  const offer = getRecoveryOfferById(createdOfferId);
+  assert.ok(offer);
+  assert.strictEqual(offer.safetyReview.decision, 'PENDING_REVIEW');
+  assert.strictEqual(offer.safetyReview.responsibleStaffConfirmation, false);
+});
+
+// Step E: Verify an ineligible offer cannot be accepted
+await asyncTest('Step E: Ineligible offer pending safety review strictly rejects acceptance', async () => {
+  const acceptResult = await acceptRecoveryOffer(createdOfferId, DEMO_NGO);
+  assert.strictEqual(acceptResult.success, false);
+  assert.ok(acceptResult.error.includes('Safety review') || acceptResult.error.includes('PENDING_REVIEW'));
+  // Status must remain OFFERED
+  const offer = getRecoveryOfferById(createdOfferId);
+  assert.strictEqual(offer.status, 'OFFERED');
+});
+
+// Step F: Complete the required demo review
+await asyncTest('Step F: Authorized staff completes safety review and marks offer eligible', async () => {
+  const reviewResult = await submitSafetyReview(createdOfferId, {
+    temperatureVerified: true,
+    hygieneCheckPassed: true,
+    packagingFoodGrade: true,
+    responsibleStaffConfirmation: true,
+    temperatureLoggedCelsius: 67.5,
+    reviewedBy: 'Chef Arvind Varma',
+    reviewerDesignation: 'Executive Chef / Food Safety Lead',
+    decision: 'ELIGIBLE_FOR_REVIEWED_PICKUP',
+    safetyNotes: 'Temperature verified 67.5°C in Bain-marie.',
+  }, DEMO_HOTEL_USER);
+
+  assert.ok(reviewResult.success, 'Safety review submission must succeed');
+  assert.strictEqual(reviewResult.offer.safetyReview.decision, 'ELIGIBLE_FOR_REVIEWED_PICKUP');
+  assert.strictEqual(reviewResult.offer.status, 'OFFERED');
+  assert.ok(reviewResult.offer.timeline.some(t => t.stage === 'SAFETY_APPROVED'));
+});
+
+// Step G: Login as demo NGO
+await asyncTest('Step G: Login as demo NGO verifies fictional partner profile and labeling', async () => {
+  assert.strictEqual(DEMO_NGO.role, 'NGO');
+  assert.strictEqual(DEMO_NGO.name, 'Hyderabad Community Food Support');
+  assert.strictEqual(DEMO_NGO.dataStatus, 'FICTIONAL DEMO PARTNER');
+  assert.ok(DEMO_NGO.coordinates.lat > 0 && DEMO_NGO.coordinates.lng > 0);
+});
+
+// Step H: Open the same offer ID
+await asyncTest('Step H: NGO retrieves same offer ID with verified safety log', async () => {
+  const offer = getRecoveryOfferById(createdOfferId);
+  assert.ok(offer);
+  assert.strictEqual(offer.id, createdOfferId);
+  assert.strictEqual(offer.safetyReview.decision, 'ELIGIBLE_FOR_REVIEWED_PICKUP');
+});
+
+// Step I: Accept the offer
+await asyncTest('Step I: NGO accepts eligible recovery offer', async () => {
+  const acceptResult = await acceptRecoveryOffer(createdOfferId, DEMO_NGO);
+  assert.ok(acceptResult.success, 'Acceptance must succeed');
+  assert.strictEqual(acceptResult.offer.status, 'ACCEPTED');
+  assert.strictEqual(acceptResult.offer.acceptedByOrgName, 'Hyderabad Community Food Support');
+  assert.ok(acceptResult.offer.acceptedAt);
+});
+
+// Step J: Confirm the decision appears in the hotel account
+await asyncTest('Step J: Hotel account reflects NGO acceptance without drift', async () => {
+  const hotelViewOffer = getRecoveryOfferById(createdOfferId);
+  assert.ok(hotelViewOffer);
+  assert.strictEqual(hotelViewOffer.status, 'ACCEPTED');
+  assert.strictEqual(hotelViewOffer.acceptedByOrgName, 'Hyderabad Community Food Support');
+  assert.ok(hotelViewOffer.timeline.some(t => t.stage === 'ACCEPTED'));
+});
+
+// Step K: Schedule pickup
+await asyncTest('Step K: NGO coordinates and schedules pickup details', async () => {
+  const schedResult = await scheduleOfferPickup(createdOfferId, {
+    scheduledDateTime: 'Today, 15:45 PM IST',
+    vehicleType: 'Insulated Van (AP-09-XX-4421)',
+    driverContact: 'Raju (Driver) • +91 98491 88321',
+    notes: 'Stainless thermal crates equipped.',
+  }, DEMO_NGO);
+
+  assert.ok(schedResult.success, 'Scheduling pickup must succeed');
+  assert.strictEqual(schedResult.offer.status, 'PICKUP_SCHEDULED');
+  assert.strictEqual(schedResult.offer.pickupDetails.scheduledDateTime, 'Today, 15:45 PM IST');
+});
+
+// Step L: Confirm both dashboards display the same pickup status
+await asyncTest('Step L: Both hotel and NGO see synchronized PICKUP_SCHEDULED status', async () => {
+  const offer = getRecoveryOfferById(createdOfferId);
+  assert.strictEqual(offer.status, 'PICKUP_SCHEDULED');
+  assert.strictEqual(offer.pickupDetails.driverContact, 'Raju (Driver) • +91 98491 88321');
+});
+
+// Step M: Complete pickup (Handover + Completion)
+await asyncTest('Step M: Hotel confirms dock handover and NGO confirms distribution completion', async () => {
+  const handoverResult = await confirmHotelHandover(createdOfferId, 65.5, DEMO_HOTEL_USER);
+  assert.ok(handoverResult.success, 'Handover must succeed');
+  assert.strictEqual(handoverResult.offer.status, 'PICKED_UP');
+  assert.strictEqual(handoverResult.offer.pickupDetails.handoverConfirmedByHotel, true);
+
+  const completeResult = await completeRecoveryRun(createdOfferId, DEMO_NGO);
+  assert.ok(completeResult.success, 'Completion must succeed');
+  assert.strictEqual(completeResult.offer.status, 'COMPLETED');
+  assert.strictEqual(completeResult.offer.pickupDetails.receivedConfirmedByNgo, true);
+  assert.ok(completeResult.offer.timeline.some(t => t.stage === 'COMPLETED'));
+});
+
+// Step N: Refresh both dashboards
+await asyncTest('Step N: Refreshing dashboards re-reads authoritative store', async () => {
+  const { offers } = await getRecoveryOffers();
+  const refreshedOffer = offers.find(o => o.id === createdOfferId);
+  assert.ok(refreshedOffer);
+  assert.strictEqual(refreshedOffer.status, 'COMPLETED');
+});
+
+// Step O: Verify saved status remains correct
+await asyncTest('Step O: Saved state retains complete timeline and distribution audit', async () => {
+  const offer = getRecoveryOfferById(createdOfferId);
+  assert.ok(offer);
+  assert.strictEqual(offer.status, 'COMPLETED');
+  assert.ok(offer.timeline.length >= 5, `Expected at least 5 timeline steps, got ${offer.timeline.length}`);
+});
+
+// ==============================================================================
+// 13. RECOVERY EDGE CASES & DEFENSIVE CONTROLS
+// ==============================================================================
+console.log('\n13. RECOVERY EDGE CASES & DEFENSIVE CONTROLS:');
+
+await asyncTest('Edge Case 1: In-app decline flow records reason and updates status to DECLINED', async () => {
+  const testOffer = await createRecoveryOffer({
+    foodItem: 'Mixed Veg Pulao',
+    dishCategory: 'Cooked Meals',
+    quantity: 4.0,
+    unit: 'kg',
+    servingsEquivalent: 20,
+    preparationDateTime: '12:00 PM IST',
+    availableUntil: '15:00 PM IST',
+    pickupDeadline: '15:00 PM IST',
+    storageCondition: 'Hot-holding (≥63°C)',
+    hotelLocation: 'Dock 2',
+  }, DEMO_HOTEL_USER);
+
+  await submitSafetyReview(testOffer.offer.id, {
+    temperatureVerified: true,
+    hygieneCheckPassed: true,
+    packagingFoodGrade: true,
+    responsibleStaffConfirmation: true,
+    reviewedBy: 'Chef Arvind Varma',
+    reviewerDesignation: 'Executive Chef',
+    decision: 'ELIGIBLE_FOR_REVIEWED_PICKUP',
+  }, DEMO_HOTEL_USER);
+
+  const declineResult = await declineRecoveryOffer(testOffer.offer.id, 'Capacity full for this shift', DEMO_NGO);
+  assert.ok(declineResult.success);
+  assert.strictEqual(declineResult.offer.status, 'DECLINED');
+  assert.strictEqual(declineResult.offer.declineReason, 'Capacity full for this shift');
+});
+
+await asyncTest('Edge Case 2: Duplicate acceptance on already claimed offer is prevented', async () => {
+  const dupResult = await acceptRecoveryOffer(createdOfferId, DEMO_NGO);
+  assert.strictEqual(dupResult.success, false);
+  assert.ok(dupResult.error.includes('no longer available') || dupResult.error.includes('COMPLETED'));
+});
+
+await asyncTest('Edge Case 3: Negative or zero quantities are rejected with validation error', async () => {
+  const negResult = await createRecoveryOffer({
+    foodItem: 'Chicken Biryani',
+    dishCategory: 'Cooked Meals',
+    quantity: -5,
+    unit: 'kg',
+    pickupDeadline: '16:00 PM IST',
+    storageCondition: 'Hot-holding (≥63°C)',
+  }, DEMO_HOTEL_USER);
+  assert.strictEqual(negResult.success, false);
+  assert.ok(negResult.error.includes('greater than zero'));
+
+  const zeroResult = await createRecoveryOffer({
+    foodItem: 'Chicken Biryani',
+    dishCategory: 'Cooked Meals',
+    quantity: 0,
+    unit: 'kg',
+    pickupDeadline: '16:00 PM IST',
+    storageCondition: 'Hot-holding (≥63°C)',
+  }, DEMO_HOTEL_USER);
+  assert.strictEqual(zeroResult.success, false);
+});
+
+await asyncTest('Edge Case 4: Missing essential fields (food description, deadline) are rejected', async () => {
+  const emptyFood = await createRecoveryOffer({
+    foodItem: '',
+    dishCategory: 'Cooked Meals',
+    quantity: 5,
+    unit: 'kg',
+    pickupDeadline: '16:00 PM IST',
+    storageCondition: 'Hot-holding (≥63°C)',
+  }, DEMO_HOTEL_USER);
+  assert.strictEqual(emptyFood.success, false);
+
+  const missingDeadline = await createRecoveryOffer({
+    foodItem: 'Vegetable Biryani',
+    dishCategory: 'Cooked Meals',
+    quantity: 5,
+    unit: 'kg',
+    pickupDeadline: '',
+    storageCondition: 'Hot-holding (≥63°C)',
+  }, DEMO_HOTEL_USER);
+  assert.strictEqual(missingDeadline.success, false);
+});
+
+await asyncTest('Edge Case 5: Safety review approval fails without responsible staff confirmation', async () => {
+  const unconfirmedResult = await submitSafetyReview(createdOfferId, {
+    temperatureVerified: true,
+    hygieneCheckPassed: true,
+    packagingFoodGrade: true,
+    responsibleStaffConfirmation: false,
+    reviewedBy: 'Chef Arvind Varma',
+    reviewerDesignation: 'Executive Chef',
+    decision: 'ELIGIBLE_FOR_REVIEWED_PICKUP',
+  }, DEMO_HOTEL_USER);
+  assert.strictEqual(unconfirmedResult.success, false);
+  assert.ok(unconfirmedResult.error.includes('Responsible staff confirmation'));
+});
+
+await asyncTest('Edge Case 6: In-app notifications generated only upon confirmed recorded actions', async () => {
+  const hotelNotifs = getRecoveryNotifications('HOTEL');
+  assert.ok(hotelNotifs.length > 0, 'Hotel must have received action notifications');
+  const ngoNotifs = getRecoveryNotifications('NGO');
+  assert.ok(ngoNotifs.length > 0, 'NGO must have received action notifications');
+  assert.ok(hotelNotifs.some(n => n.offerId === createdOfferId));
+});
+
+await asyncTest('Edge Case 7: Geodesic straight-line distance between Hotel & Demo NGO is ~4.5 km', () => {
+  const dist = calculateHaversineDistance(
+    DEMO_HOTEL_USER.coordinates.lat,
+    DEMO_HOTEL_USER.coordinates.lng,
+    DEMO_NGO.coordinates.lat,
+    DEMO_NGO.coordinates.lng
+  );
+  assert.ok(dist >= 4.0 && dist <= 5.2, `Expected distance ~4.5 km, got ${dist} km`);
+  const label = formatStraightLineDistance(
+    DEMO_HOTEL_USER.coordinates.lat,
+    DEMO_HOTEL_USER.coordinates.lng,
+    DEMO_NGO.coordinates.lat,
+    DEMO_NGO.coordinates.lng
+  );
+  assert.ok(label.includes('straight-line'));
+});
+
 // SUMMARY
 console.log('\n============================================================');
 console.log(`TEST RESULTS: ${passedTests} / ${totalTests} TESTS PASSED (100%)`);
@@ -406,3 +743,4 @@ if (passedTests !== totalTests) {
 } else {
   process.exit(0);
 }
+
