@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   History, 
   ArrowRight,
+  Download
 } from 'lucide-react';
 import { ScreenId } from '@/components/layout/Header';
 import { 
@@ -46,6 +47,31 @@ export function HistoryScreen({ onNavigate, history = [] }: HistoryScreenProps) 
     });
   }, [selectedServiceFilter, selectedDayFilter, showEventOnly]);
 
+  // Export CSV Handler
+  const handleExportCSV = () => {
+    const headers = ['Date', 'Service', 'Day', 'Expected_Diners', 'Actual_Diners', 'Total_Prepared_kg', 'Total_Served_kg', 'Remaining_kg', 'Waste_kg', 'Special_Event'];
+    const rows = filteredRecords.map((r: HistoricalServiceRecord) => [
+      r.serviceDate,
+      r.serviceType,
+      r.dayOfWeek,
+      r.expectedCustomers,
+      r.actualCustomers,
+      r.foodPrepared.toFixed(1),
+      r.foodServed.toFixed(1),
+      r.foodRemaining.toFixed(1),
+      r.foodWasted.toFixed(1),
+      `"${((r.specialEvent ? (r.eventName || 'Special Event') : 'None')).replace(/"/g, '""')}"`
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `foodflow_historical_services_${selectedServiceFilter.toLowerCase()}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-8 pb-16 max-w-6xl mx-auto">
       {/* 01. HEADER & DATASET DISCLOSURE */}
@@ -74,6 +100,14 @@ export function HistoryScreen({ onNavigate, history = [] }: HistoryScreenProps) 
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportCSV}
+              className="px-3.5 py-2 rounded-xl bg-white border border-[#E6E4DC] hover:bg-[#FAF9F5] text-xs font-bold text-[#141618] flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            >
+              <Download className="w-3.5 h-3.5 text-[#1B4D36]" />
+              <span>Export CSV ({filteredRecords.length})</span>
+            </button>
             {onNavigate && (
               <button
                 type="button"

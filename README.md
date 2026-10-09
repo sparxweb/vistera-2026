@@ -41,8 +41,8 @@ By giving executive chefs accurate, deterministic attendance forecasts and struc
 - **Database & BaaS:** Supabase (`@supabase/supabase-js` `2.45.1`), PostgreSQL migrations
 - **AI Operational Briefs:** Google Gemini 3.8 Flash via official `@google/genai` SDK
 - **Maps & Geolocation:** Leaflet `1.9.4`, React-Leaflet `4.2.1`, OpenStreetMap tile servers
-- **Storage Layer:** Dual-mode browser `localStorage` fallback
-- **Automated Verification:** Custom Node.js ESM test suite (`56/56` tests passing, 100% pass rate)
+- **Automated Verification:** Custom Node.js ESM test suite (`62/62` tests passing, 100% pass rate)
+- **Release Audit Report:** Full feature-by-feature verification inventory in [**`ROUND3_FULL_SYSTEM_AUDIT_REPORT.md`**](./ROUND3_FULL_SYSTEM_AUDIT_REPORT.md).
 
 ---
 
@@ -72,14 +72,17 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Running Automated Verification Tests
 ```bash
-# Run the 56-test automated test suite (via tsx)
+# Run the 62-test automated verification suite (via tsx)
 npm test
 # or: npx tsx tests/foodflow-suite.mjs
 
-# Verify TypeScript compilation
+# Verify TypeScript compilation (0 errors)
 npx tsc --noEmit
 
-# Verify Next.js production build
+# Verify ESLint (0 errors)
+npm run lint
+
+# Verify Production Build
 npm run build
 ```
 

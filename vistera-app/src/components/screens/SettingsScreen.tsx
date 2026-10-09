@@ -21,9 +21,25 @@ interface SettingsScreenProps {
 
 export function SettingsScreen({ onNavigate }: SettingsScreenProps) {
   // 1. Facility
-  const [facilityName, setFacilityName] = useState(DEMO_HOTEL.name);
-  const [capacity, setCapacity] = useState(DEMO_HOTEL.serviceCapacity);
-  const [location, setLocation] = useState(DEMO_HOTEL.location);
+  const [facilityName, setFacilityName] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.localStorage.getItem('foodflow_facility_name') || DEMO_HOTEL.name;
+    }
+    return DEMO_HOTEL.name;
+  });
+  const [capacity, setCapacity] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = window.localStorage.getItem('foodflow_facility_capacity');
+      if (saved && !isNaN(Number(saved))) return Number(saved);
+    }
+    return DEMO_HOTEL.serviceCapacity;
+  });
+  const [location, setLocation] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.localStorage.getItem('foodflow_facility_location') || DEMO_HOTEL.location;
+    }
+    return DEMO_HOTEL.location;
+  });
 
   // 2. Operations
   const [bufferPercent, setBufferPercent] = useState(() => {
@@ -35,8 +51,18 @@ export function SettingsScreen({ onNavigate }: SettingsScreenProps) {
     }
     return 3.0;
   });
-  const [serviceDefaultMeal, setServiceDefaultMeal] = useState('Lunch');
-  const [defaultShiftTime, setDefaultShiftTime] = useState('12:30 PM – 15:30 PM');
+  const [serviceDefaultMeal, setServiceDefaultMeal] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.localStorage.getItem('foodflow_service_meal') || 'Lunch';
+    }
+    return 'Lunch';
+  });
+  const [defaultShiftTime, setDefaultShiftTime] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.localStorage.getItem('foodflow_default_shift_time') || '12:30 PM – 15:30 PM';
+    }
+    return '12:30 PM – 15:30 PM';
+  });
   const [savedNotice, setSavedNotice] = useState(false);
 
   // Integrations / API Health State (No secrets exposed)
@@ -46,7 +72,12 @@ export function SettingsScreen({ onNavigate }: SettingsScreenProps) {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (typeof window !== 'undefined') {
+      window.localStorage.setItem('foodflow_facility_name', facilityName);
+      window.localStorage.setItem('foodflow_facility_capacity', String(capacity));
+      window.localStorage.setItem('foodflow_facility_location', location);
       window.localStorage.setItem('foodflow_buffer_pct', String(bufferPercent));
+      window.localStorage.setItem('foodflow_service_meal', serviceDefaultMeal);
+      window.localStorage.setItem('foodflow_default_shift_time', defaultShiftTime);
     }
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 3000);

@@ -15,16 +15,21 @@ npm install
 # Start local Next.js development server
 npm run dev
 
-# Run full automated verification suite (56 tests)
+# Run full automated verification suite (62 tests)
 npm test
 # or: npx tsx tests/foodflow-suite.mjs
 
 # Verify type safety
 npx tsc --noEmit
 
+# Run linter
+npm run lint
+
 # Test production build
 npm run build
 ```
+
+**Release Verification Report:** See [**`ROUND3_FULL_SYSTEM_AUDIT_REPORT.md`**](./ROUND3_FULL_SYSTEM_AUDIT_REPORT.md).
 
 Open [http://localhost:3000](http://localhost:3000) to view the live application.
 

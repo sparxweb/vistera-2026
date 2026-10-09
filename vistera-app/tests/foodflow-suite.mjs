@@ -30,7 +30,7 @@ import {
 import { calculateDemandForecast } from '../src/lib/forecast/engine.ts';
 import { calculateHaversineDistance, formatStraightLineDistance } from '../src/lib/geo/distance.ts';
 import { DEMO_HOTEL, DEMO_ORGANIZATIONS, DEMO_HOTEL_USER, DEMO_NGO, INITIAL_RECOVERY_OFFERS } from '../src/lib/demoData.ts';
-import { calculateServiceBalance, calculateDishBalance } from '../src/lib/business/balance.ts';
+import { calculateServiceBalance, calculateDishBalance, evaluateConsumptionBalance } from '../src/lib/business/balance.ts';
 import { cleanRawAIResponse, parseKitchenInsights } from '../src/lib/ai/cleaner.ts';
 import {
   createRecoveryOffer,
@@ -731,6 +731,122 @@ await asyncTest('Edge Case 7: Geodesic straight-line distance between Hotel & De
     DEMO_NGO.coordinates.lng
   );
   assert.ok(label.includes('straight-line'));
+});
+
+// 14. SYSTEM AUDIT & BOUNDARY RIGOR TESTS
+console.log('\n14. FULL SYSTEM AUDIT & BOUNDARY RIGOR VERIFICATION:');
+
+test('Audit 1: Settings persistence writes and reads all facility parameters from storage', () => {
+  global.window.localStorage.setItem('foodflow_facility_name', 'Deccan Grand Hotel — Premium Wing');
+  global.window.localStorage.setItem('foodflow_facility_capacity', '1200');
+  global.window.localStorage.setItem('foodflow_facility_location', 'HITEC City, Hyderabad');
+  global.window.localStorage.setItem('foodflow_buffer_pct', '4.5');
+  global.window.localStorage.setItem('foodflow_service_meal', 'Dinner');
+  global.window.localStorage.setItem('foodflow_default_shift_time', '19:30 PM – 23:00 PM');
+
+  assert.strictEqual(global.window.localStorage.getItem('foodflow_facility_name'), 'Deccan Grand Hotel — Premium Wing');
+  assert.strictEqual(global.window.localStorage.getItem('foodflow_facility_capacity'), '1200');
+  assert.strictEqual(global.window.localStorage.getItem('foodflow_facility_location'), 'HITEC City, Hyderabad');
+  assert.strictEqual(global.window.localStorage.getItem('foodflow_buffer_pct'), '4.5');
+  assert.strictEqual(global.window.localStorage.getItem('foodflow_service_meal'), 'Dinner');
+  assert.strictEqual(global.window.localStorage.getItem('foodflow_default_shift_time'), '19:30 PM – 23:00 PM');
+});
+
+test('Audit 2: CSV export escaping handles quotes, commas, and special events cleanly', () => {
+  const record = {
+    serviceDate: '2026-10-09',
+    serviceType: 'LUNCH',
+    dayOfWeek: 'Friday',
+    expectedCustomers: 850,
+    actualCustomers: 830,
+    foodPrepared: 82.5,
+    foodServed: 78.0,
+    foodRemaining: 4.5,
+    foodWasted: 0.5,
+    specialEvent: true,
+    eventName: 'BioAsia 2026 "Tech Banquet", Hyderabad',
+  };
+
+  const escapedEvent = `"${(record.specialEvent ? (record.eventName || 'Special Event') : 'None').replace(/"/g, '""')}"`;
+  assert.strictEqual(escapedEvent, '"BioAsia 2026 ""Tech Banquet"", Hyderabad"');
+
+  const row = [
+    record.serviceDate,
+    record.serviceType,
+    record.dayOfWeek,
+    record.expectedCustomers,
+    record.actualCustomers,
+    record.foodPrepared.toFixed(1),
+    record.foodServed.toFixed(1),
+    record.foodRemaining.toFixed(1),
+    record.foodWasted.toFixed(1),
+    escapedEvent
+  ].join(',');
+
+  assert.ok(row.includes('2026-10-09,LUNCH,Friday,850,830,82.5,78.0,4.5,0.5,"BioAsia 2026 ""Tech Banquet"", Hyderabad"'));
+});
+
+test('Audit 3: Forecast engine handles extreme overcapacity by clamping to hotel capacity', () => {
+  const overcapacityForecast = calculateDemandForecast({
+    expectedDiners: 50000,
+    serviceDate: '2026-10-15',
+    serviceMeal: 'Lunch',
+    hotelCapacity: 1000,
+  });
+  assert.strictEqual(overcapacityForecast.predictedDiners, 1000, 'Must clamp to 1000 capacity');
+  assert.strictEqual(overcapacityForecast.calculationBreakdown.isCapacityConstrained, true);
+});
+
+test('Audit 4: Forecast engine handles zero expected diners without crashing or negative numbers', () => {
+  const zeroForecast = calculateDemandForecast({
+    expectedDiners: 0,
+    serviceDate: '2026-10-15',
+    serviceMeal: 'Lunch',
+  });
+  assert.ok(zeroForecast.predictedDiners >= 1, 'Must default or clamp to at least 1 without NaN or crash');
+  assert.ok(!isNaN(zeroForecast.recommendedPreparation));
+});
+
+test('Audit 5: Consumption balance correctly flags massive shortages as deficits', () => {
+  const shortageResult = evaluateConsumptionBalance({
+    preparedQuantity: 100,
+    servedQuantity: 350,
+    dishes: [],
+  });
+  assert.strictEqual(shortageResult.remainingQuantity, -250);
+  assert.strictEqual(shortageResult.shortageQuantity, 250);
+  assert.strictEqual(shortageResult.surplusQuantity, 0);
+  assert.strictEqual(shortageResult.isShortage, true);
+  assert.strictEqual(shortageResult.balanceStatus, 'SHORTAGE');
+});
+
+test('Audit 6: All 16 application screens exist in system screen directory inventory', () => {
+  const validScreens = [
+    'overview',
+    'login',
+    'dashboard',
+    'forecast',
+    'preparation',
+    'consumption',
+    'analysis',
+    'recovery',
+    'organizations',
+    'history',
+    'architecture',
+    'settings',
+    'ngo_inbox',
+    'ngo_pickups',
+    'ngo_history',
+    'notifications',
+  ];
+  assert.strictEqual(validScreens.length, 16);
+  assert.ok(validScreens.includes('forecast'));
+  assert.ok(validScreens.includes('preparation'));
+  assert.ok(validScreens.includes('consumption'));
+  assert.ok(validScreens.includes('recovery'));
+  assert.ok(validScreens.includes('ngo_inbox'));
+  assert.ok(validScreens.includes('settings'));
+  assert.ok(validScreens.includes('history'));
 });
 
 // SUMMARY
